@@ -10,6 +10,10 @@ interface Props {
 const { lang } = Astro.props;
 const t = copy[lang];
 
+// Тот же QR в виде сетки 0/1 — по ней 3D-бейдж рисует оборот.
+const qrModules = QRCode.create(profile.site, { errorCorrectionLevel: 'M' }).modules;
+const qrBits = Array.from(qrModules.data, (v) => (v ? '1' : '0')).join('');
+
 const qr = await QRCode.toString(profile.site, {
   type: 'svg',
   margin: 0,
@@ -19,8 +23,19 @@ const qr = await QRCode.toString(profile.site, {
 ---
 
 <section class="heroA">
+  <!-- Сюда после загрузки страницы встаёт 3D-бейдж на ленте. До этого видна HTML-карточка ниже. -->
+  <div class="lanyard" data-lanyard></div>
   <div class="badgeWrap">
-    <button class="badge" type="button" aria-pressed="false" aria-label={t.flipToQr}>
+    <button
+      class="badge"
+      type="button"
+      aria-pressed="false"
+      aria-label={t.flipToQr}
+      data-qr={qrBits}
+      data-qr-size={qrModules.size}
+      data-site={profile.siteLabel}
+      data-band={profile.telegram.handle.replace('@', '')}
+    >
       <span class="badge__tilt">
         <span class="badge__flip">
           <span class="badge__face badge__front">
@@ -51,7 +66,7 @@ const qr = await QRCode.toString(profile.site, {
     </button>
   </div>
 
-  <p class="heroA__hint mono">{t.flipHint}</p>
+  <p class="heroA__hint mono" data-drag-hint={t.dragHint}>{t.flipHint}</p>
   <h1 class="lead">{t.line}</h1>
   <Actions lang={lang} />
 </section>
@@ -79,6 +94,7 @@ const qr = await QRCode.toString(profile.site, {
   }
 
   .heroA {
+    position: relative;
     min-height: calc(100svh - 56px);
     display: flex;
     flex-direction: column;
@@ -90,12 +106,57 @@ const qr = await QRCode.toString(profile.site, {
   }
 
   .badgeWrap {
+    /* Отступ сверху оставляет место для ленты над бейджем. */
+    margin-top: clamp(28px, 9svh, 96px);
     animation: drop 0.9s cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+  }
+
+  /* 3D-бейдж: холст на весь первый экран и выше, под шапку — лента уходит за верхний край.
+     Нажатия холст не ловит: их разбирает скрипт, чтобы не мешать кнопкам и прокрутке. */
+  .lanyard {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -72px;
+    bottom: 0;
+    z-index: 2;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+  }
+
+  .lanyard :global(canvas) {
+    display: block;
+  }
+
+  .heroA.is-3d .lanyard {
+    opacity: 1;
+  }
+
+  /* HTML-карточка остаётся на месте (для клавиатуры и экранного диктора), но не видна. */
+  .heroA.is-3d .badge {
+    animation: none;
+    pointer-events: none;
+  }
+
+  .heroA.is-3d .badge__tilt {
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+
+  :global(html.is-over-badge) {
+    cursor: grab;
+  }
+
+  :global(html.is-grabbing),
+  :global(html.is-grabbing *) {
+    cursor: grabbing !important;
+    user-select: none;
   }
 
   .badge {
     display: block;
-    height: min(56svh, 470px);
+    height: min(48svh, 470px);
     max-width: 84vw;
     aspect-ratio: 0.68;
     padding: 0;
@@ -332,7 +393,9 @@ const qr = await QRCode.toString(profile.site, {
   }
 
   .heroA__hint {
-    margin: 4px 0 0;
+    margin: 14px 0 0;
+    max-width: 34ch;
+    text-wrap: balance;
     color: var(--ink-soft);
     font-size: 10px;
   }
@@ -438,5 +501,70 @@ const qr = await QRCode.toString(profile.site, {
           .catch(() => {});
       }
     });
+  }
+
+  // 3D-бейдж на ленте: грузится, когда страница уже показана, и только там, где он потянет.
+  const hero = document.querySelector<HTMLElement>('.heroA');
+  const host = document.querySelector<HTMLElement>('[data-lanyard]');
+  const card = document.querySelector<HTMLButtonElement>('.badge');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Нужна видеокарта: без неё (программная отрисовка) 3D будет лагать — тогда остаётся обычная карточка.
+  const hasGpu = (() => {
+    try {
+      const gl = document.createElement('canvas').getContext('webgl2');
+      if (!gl) return false;
+      const info = gl.getExtension('WEBGL_debug_renderer_info');
+      const name = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : '';
+      return !/swiftshader|llvmpipe|softpipe|software|basic render/i.test(name);
+    } catch {
+      return false;
+    }
+  })();
+  // Режим экономии трафика или совсем медленный интернет — не тянем 3D.
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } })
+    .connection;
+  const thinNetwork = !!connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType ?? '');
+  // ?3d в адресе включает бейдж принудительно (для проверки на любом устройстве).
+  const forced = new URLSearchParams(location.search).has('3d');
+
+  if (hero && host && card && !reduceMotion && (forced || (hasGpu && !thinNetwork))) {
+    const text = (sel: string) => card.querySelector(sel)?.textContent?.trim() ?? '';
+    const start = async () => {
+      try {
+        const { mountLanyard } = await import('../scripts/lanyard');
+        const lanyard = await mountLanyard({
+          host,
+          target: card,
+          content: {
+            role: text('.badge__role'),
+            first: text('.badge__name span:first-child'),
+            last: text('.badge__name span:last-child'),
+            makes: [...card.querySelectorAll('.badge__makes span')].map((el) => el.textContent?.trim() ?? ''),
+            handle: text('.badge__foot span:first-child'),
+            site: card.dataset.site ?? '',
+            scan: text('.badge__scan'),
+            qr: card.dataset.qr ?? '',
+            qrSize: Number(card.dataset.qrSize ?? 0),
+            band: card.dataset.band ?? '',
+          },
+          isFlipped: () => card.getAttribute('aria-pressed') === 'true',
+          onTap: () => card.click(),
+          onReady: () => {
+            hero.classList.add('is-3d');
+            const hint = hero.querySelector<HTMLElement>('[data-drag-hint]');
+            if (hint?.dataset.dragHint) hint.textContent = hint.dataset.dragHint;
+          },
+        });
+        new MutationObserver(lanyard.wake).observe(card, { attributes: true, attributeFilter: ['aria-pressed'] });
+      } catch (error) {
+        // Не загрузилось — остаётся обычная карточка.
+        hero.classList.remove('is-3d');
+        console.warn('3D badge unavailable', error);
+      }
+    };
+    const idle = (fn: () => void) =>
+      'requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 1500 }) : setTimeout(fn, 300);
+    if (document.readyState === 'complete') idle(start);
+    else window.addEventListener('load', () => idle(start), { once: true });
   }
 </script>
