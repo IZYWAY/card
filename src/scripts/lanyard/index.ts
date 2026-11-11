@@ -499,5 +499,22 @@ export async function mountLanyard(o: LanyardOptions) {
   o.onReady();
   schedule();
 
-  return { wake };
+  /** Новые надписи (например, при смене языка): перерисовываем картинки, физику не трогаем. */
+  const setContent = (content: BadgeContent) => {
+    const swap = (mat: THREE.MeshStandardMaterial, img: HTMLCanvasElement, opts: { emissive?: boolean; repeat?: boolean } = {}) => {
+      const old = mat.map;
+      const next = texture(img);
+      if (opts.repeat) next.wrapT = THREE.RepeatWrapping;
+      mat.map = next;
+      if (opts.emissive) mat.emissiveMap = next;
+      old?.dispose();
+    };
+    swap(frontMat, drawFront(content));
+    swap(backMat, drawBack(content), { emissive: true });
+    swap(band.material as THREE.MeshStandardMaterial, drawBand(content), { repeat: true });
+    dirty = true;
+    schedule();
+  };
+
+  return { wake, setContent };
 }

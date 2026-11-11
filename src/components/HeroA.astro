@@ -562,23 +562,25 @@ const bigLetters = [...initials].map((letter, i) => ({ letter, strips: shearPlan
     // а бейдж подменит её, когда всё-таки загрузится.
     const giveUp = window.setTimeout(showCard, 8000);
     const text = (sel: string) => card.querySelector(sel)?.textContent?.trim() ?? '';
+    // Надписи для 3D-бейджа берутся из HTML-карточки: при смене языка она обновляется первой.
+    const readContent = () => ({
+      role: text('.badge__role'),
+      first: text('.badge__name span:first-child'),
+      last: text('.badge__name span:last-child'),
+      handle: card.dataset.handle ?? '',
+      site: card.dataset.site ?? '',
+      qr: card.dataset.qr ?? '',
+      qrSize: Number(card.dataset.qrSize ?? 0),
+      tag: card.dataset.tag ?? '',
+      qrTitle: card.dataset.qrTitle ?? '',
+    });
     const start = async () => {
       try {
         const { mountLanyard } = await import('../scripts/lanyard');
         const lanyard = await mountLanyard({
           host,
           target: card,
-          content: {
-            role: text('.badge__role'),
-            first: text('.badge__name span:first-child'),
-            last: text('.badge__name span:last-child'),
-            handle: card.dataset.handle ?? '',
-            site: card.dataset.site ?? '',
-            qr: card.dataset.qr ?? '',
-            qrSize: Number(card.dataset.qrSize ?? 0),
-            tag: card.dataset.tag ?? '',
-            qrTitle: card.dataset.qrTitle ?? '',
-          },
+          content: readContent(),
           isFlipped: () => card.getAttribute('aria-pressed') === 'true',
           onTap: () => card.click(),
           onReady: () => {
@@ -590,6 +592,13 @@ const bigLetters = [...initials].map((letter, i) => ({ letter, strips: shearPlan
           },
         });
         new MutationObserver(lanyard.wake).observe(card, { attributes: true, attributeFilter: ['aria-pressed'] });
+        // Язык сменился без перезагрузки (см. LangSwitch.astro): перерисовываем надписи на бейдже.
+        document.addEventListener('langchange', () => {
+          const hint = hero.querySelector<HTMLElement>('[data-drag-hint]');
+          if (hint?.dataset.dragHint) hint.textContent = hint.dataset.dragHint;
+          // Рисование надписей занимает заметное время: сначала даём проявиться тексту страницы.
+          window.setTimeout(() => lanyard.setContent(readContent()), 60);
+        });
       } catch (error) {
         // Не загрузилось — показываем обычную карточку.
         window.clearTimeout(giveUp);

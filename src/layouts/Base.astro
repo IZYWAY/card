@@ -7,6 +7,7 @@ import '@fontsource-variable/geist-mono/wght.css';
 import geistLatin from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url';
 import geistCyrillic from '@fontsource-variable/geist/files/geist-cyrillic-wght-normal.woff2?url';
 import { copy, href, asset, type Lang } from '../data/profile';
+import LangSwitch from '../components/LangSwitch.astro';
 
 interface Props {
   lang: Lang;
@@ -68,6 +69,7 @@ const pageTitle = title ? `${title} · ${fullName}` : `${fullName} · ${t.role}`
       );
       items.forEach((item) => observer.observe(item));
     </script>
+    <LangSwitch />
   </body>
 </html>
 

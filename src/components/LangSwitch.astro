@@ -1,0 +1,141 @@
+<!--
+  Смена языка без перезагрузки страницы.
+  По нажатию на EN / RU страница другого языка загружается в фоне (обычно заранее, при наведении),
+  тексты плавно гаснут, подменяются на месте и снова проявляются. Адрес в строке браузера меняется,
+  кнопка «Назад» возвращает прежний язык. 3D-бейдж не перезагружается: он продолжает висеть,
+  а надписи на нём перерисовываются (событие langchange, см. HeroA.astro).
+  Если что-то пошло не так, браузер просто открывает страницу другого языка, как обычная ссылка.
+-->
+<script>
+  const root = document.documentElement;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const FADE_MS = 180;
+
+  const cache = new Map<string, Promise<Document>>();
+  const keyOf = (url: string) => new URL(url, location.href).pathname;
+
+  function load(url: string) {
+    const key = keyOf(url);
+    let page = cache.get(key);
+    if (!page) {
+      page = fetch(key, { credentials: 'same-origin' })
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.text();
+        })
+        .then((html) => new DOMParser().parseFromString(html, 'text/html'));
+      page.catch(() => cache.delete(key));
+      cache.set(key, page);
+    }
+    return page;
+  }
+
+  /** Заменяет элемент текущей страницы таким же элементом со страницы другого языка. */
+  function replace(next: Document, selector: string) {
+    const current = document.querySelector(selector);
+    const fresh = next.querySelector(selector);
+    if (current && fresh) current.replaceWith(document.importNode(fresh, true));
+  }
+
+  function swap(next: Document) {
+    document.title = next.title;
+    root.lang = next.documentElement.lang;
+    for (const sel of ['meta[name="description"]', 'meta[property="og:title"]', 'meta[property="og:description"]']) {
+      const content = next.querySelector(sel)?.getAttribute('content');
+      if (content) document.querySelector(sel)?.setAttribute('content', content);
+    }
+
+    replace(next, '.top');
+
+    // Карточку-кнопку не заменяем целиком: к ней привязаны переворот и 3D-бейдж.
+    // Меняем только её содержимое и подписи, а перевёрнута она или нет — сохраняем.
+    const card = document.querySelector<HTMLElement>('.badge');
+    const nextCard = next.querySelector<HTMLElement>('.badge');
+    if (card && nextCard) {
+      for (const name of nextCard.getAttributeNames()) {
+        if (!['aria-pressed', 'style', 'class'].includes(name)) card.setAttribute(name, nextCard.getAttribute(name) ?? '');
+      }
+      card.innerHTML = nextCard.innerHTML;
+    }
+    replace(next, '.heroA__hint');
+    replace(next, '.heroA .lead');
+    replace(next, '.heroA .actions');
+    for (const id of ['#what', '#works', '#contact']) replace(next, id);
+
+    // Разделы уже на месте: показываем их сразу, без повторной анимации появления.
+    document.querySelectorAll('.reveal').forEach((el) => el.classList.add('is-in'));
+    document.dispatchEvent(new CustomEvent('langchange', { detail: { lang: root.lang } }));
+  }
+
+  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  let busy = false;
+
+  async function go(url: string, push: boolean) {
+    if (busy) return;
+    busy = true;
+    try {
+      const pagePromise = load(url);
+      if (!reduceMotion) {
+        root.classList.add('is-switching');
+        await wait(FADE_MS);
+      }
+      const next = await pagePromise;
+      swap(next);
+      if (push) {
+        try {
+          history.pushState({ lang: root.lang }, '', url);
+        } catch {
+          /* в некоторых встроенных просмотрщиках адрес менять нельзя — язык всё равно сменился */
+        }
+      }
+      // Даём браузеру нарисовать новый текст прозрачным, затем проявляем.
+      requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('is-switching')));
+    } catch {
+      root.classList.remove('is-switching');
+      location.href = url;
+    } finally {
+      busy = false;
+    }
+  }
+
+  const langLink = (target: EventTarget | null) =>
+    target instanceof Element ? target.closest<HTMLAnchorElement>('.top__lang a') : null;
+
+  document.addEventListener('click', (event) => {
+    const link = langLink(event.target);
+    if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    if (link.getAttribute('aria-current') !== 'true') go(link.href, true);
+  });
+
+  // Загружаем заранее: при наведении, касании или фокусе на переключателе.
+  for (const type of ['pointerover', 'touchstart', 'focusin']) {
+    document.addEventListener(
+      type,
+      (event) => {
+        const link = langLink(event.target);
+        if (link && link.getAttribute('aria-current') !== 'true') load(link.href);
+      },
+      { passive: true },
+    );
+  }
+
+  // Кнопка «Назад» / «Вперёд» в браузере: возвращаем язык из адреса без перезагрузки.
+  window.addEventListener('popstate', () => go(location.href, false));
+</script>
+
+<style is:global>
+  /* Плавная смена языка: тексты гаснут и проявляются, 3D-бейдж остаётся на месте. */
+  .top,
+  .badge,
+  .heroA__hint,
+  .heroA .lead,
+  .heroA .actions,
+  main > section:not(.heroA) {
+    transition: opacity 0.18s ease;
+  }
+
+  html.is-switching :is(.top, .badge, .heroA__hint, .heroA .lead, .heroA .actions, main > section:not(.heroA)) {
+    opacity: 0;
+  }
+</style>
