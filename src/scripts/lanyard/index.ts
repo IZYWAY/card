@@ -148,14 +148,20 @@ export async function mountLanyard(o: LanyardOptions) {
   edge.position.z = -CARD_D / 2;
   card.add(front, back, edge);
 
-  // Карабин из тёмного металла: узкий зажим на верхнем краю и петля, в которую продета лента.
+  // Карабин из тёмного металла: узкий зажим на верхнем краю карточки и кольцо, в которое продета лента.
   const metal = new THREE.MeshStandardMaterial({ color: 0x353535, metalness: 1, roughness: 0.3 });
   const clamp = new THREE.Mesh(new RoundedBoxGeometry(0.085, 0.38, 0.12, 3, 0.03), metal);
   clamp.position.set(0, CARD_H / 2 + 0.02, 0);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.024, 16, 48), metal);
-  ring.scale.set(1.25, 1, 1);
-  ring.position.set(0, ANCHOR_Y - 0.01, 0);
-  card.add(clamp, ring);
+  card.add(clamp);
+  // Кольцо сидит на вертлюге: при перевороте карточка крутится, а кольцо — нет.
+  // Оно всегда смотрит на зрителя и наклоняется вслед за лентой (см. updateBand).
+  // Кольцо чуть шире ленты: настоящая лента продевается в кольцо, а не висит на нём.
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.024, 16, 48), metal);
+  ring.scale.set(1.55, 1, 1);
+  scene.add(ring);
+  const RING_LOCAL = new THREE.Vector3(0, ANCHOR_Y + 0.01, 0);
+  const ringPos = new THREE.Vector3();
+  const strapUp = new THREE.Vector3();
 
   const pickables = [front, back, edge, clamp];
 
@@ -376,7 +382,16 @@ export async function mountLanyard(o: LanyardOptions) {
     curve.points[1].copy(anchor);
     curve.points[2].copy(lerped[0]);
     curve.points[3].copy(lerped[1]);
-    curve.points[4].copy(links[2].translation() as THREE.Vector3Like);
+    // Кольцо: точка крепления на карточке, развёрнуто по направлению ленты, лицом к зрителю.
+    const end = links[2].translation();
+    strapUp.set(lerped[1].x - end.x, lerped[1].y - end.y, 0);
+    if (strapUp.lengthSq() < 1e-6) strapUp.set(0, 1, 0);
+    strapUp.normalize();
+    ringPos.copy(RING_LOCAL).applyMatrix4(card.matrixWorld);
+    ring.position.set(ringPos.x, ringPos.y, ringPos.z - 0.03);
+    ring.rotation.set(0, 0, Math.atan2(-strapUp.x, strapUp.y));
+    // Лента заходит на верх кольца и перекрывает его — выглядит продетой.
+    curve.points[4].set(end.x + strapUp.x * 0.075, end.y + strapUp.y * 0.075, end.z);
     const spaced = curve.getSpacedPoints(SEG);
     const length = curve.getLength();
     for (let i = 0; i <= SEG; i++) {
@@ -435,6 +450,7 @@ export async function mountLanyard(o: LanyardOptions) {
       const r = body.rotation();
       card.position.set(t.x, t.y, t.z);
       card.quaternion.set(r.x, r.y, r.z, r.w);
+      card.updateMatrixWorld();
       shadow.position.set(t.x + 0.18, t.y - 0.32, t.z - 0.9);
       shadow.quaternion.identity();
       updateBand();
@@ -471,6 +487,13 @@ export async function mountLanyard(o: LanyardOptions) {
   };
 
   layout();
+  {
+    const t0 = body.translation();
+    const r0 = body.rotation();
+    card.position.set(t0.x, t0.y, t0.z);
+    card.quaternion.set(r0.x, r0.y, r0.z, r0.w);
+    card.updateMatrixWorld();
+  }
   updateBand();
   renderer.render(scene, camera);
   o.onReady();
