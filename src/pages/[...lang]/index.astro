@@ -1,83 +1,18 @@
 ---
 import Base from '../../layouts/Base.astro';
-import { copy, href, langPaths, type Lang } from '../../data/profile';
+import HeroA from '../../components/HeroA.astro';
+import What from '../../components/What.astro';
+import Works from '../../components/Works.astro';
+import Contact from '../../components/Contact.astro';
+import { langPaths, type Lang } from '../../data/profile';
 
 export const getStaticPaths = langPaths;
 const lang: Lang = Astro.params.lang === 'ru' ? 'ru' : 'en';
-const t = copy[lang];
 ---
 
 <Base lang={lang}>
-  <section class="pick">
-    <h1 class="pick__title">{t.chooserTitle}</h1>
-    <p class="lead">{t.chooserLead}</p>
-    <a class="pick__tile pick__tile--a" href={href(lang, 'a')}>
-      <span class="mono">A</span>
-      <strong>{t.optionA}</strong>
-      <span>{t.optionADesc}</span>
-    </a>
-    <a class="pick__tile" href={href(lang, 'b')}>
-      <span class="mono">B</span>
-      <strong>{t.optionB}</strong>
-      <span>{t.optionBDesc}</span>
-    </a>
-  </section>
+  <HeroA lang={lang} />
+  <What lang={lang} />
+  <Works lang={lang} />
+  <Contact lang={lang} />
 </Base>
-
-<style>
-  .pick {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 14px;
-    width: 100%;
-    max-width: 520px;
-    margin: 0 auto;
-    padding: 24px var(--gutter) 40px;
-  }
-
-  .pick__title {
-    margin: 0;
-    font-family: var(--display);
-    font-weight: 700;
-    font-size: clamp(24px, 7vw, 34px);
-    line-height: 1.12;
-    text-wrap: balance;
-  }
-
-  .pick .lead {
-    margin-bottom: 10px;
-    color: var(--ink-soft);
-  }
-
-  .pick__tile {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    padding: 22px;
-    border-radius: 20px;
-    border: 1.5px solid var(--ink);
-    text-decoration: none;
-  }
-
-  .pick__tile strong {
-    font-family: var(--display);
-    font-weight: 600;
-    font-size: 20px;
-  }
-
-  .pick__tile span:last-child {
-    color: var(--ink-soft);
-  }
-
-  .pick__tile--a {
-    background: var(--card);
-    border-color: var(--card);
-    color: #f3f2ff;
-  }
-
-  .pick__tile--a span:last-child {
-    color: #b9b7e6;
-  }
-</style>

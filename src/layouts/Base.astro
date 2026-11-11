@@ -46,6 +46,22 @@ const pageTitle = title ? `${title} · ${fullName}` : `${fullName} · ${t.role}`
     <main>
       <slot />
     </main>
+    <script>
+      document.documentElement.classList.add('js');
+      const items = document.querySelectorAll('.reveal');
+      const observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-in');
+              observer.unobserve(entry.target);
+            }
+          }
+        },
+        { rootMargin: '0px 0px -8% 0px' },
+      );
+      items.forEach((item) => observer.observe(item));
+    </script>
   </body>
 </html>
 
@@ -200,6 +216,37 @@ const pageTitle = title ? `${title} · ${fullName}` : `${fullName} · ${t.role}`
       border-color: #4429d8;
       color: #fff;
     }
+  }
+
+  .section {
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 72px var(--gutter) 0;
+  }
+
+  .section__title {
+    margin: 0 0 28px;
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(30px, 9.5vw, 72px);
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+  }
+
+  /* Появление при прокрутке. Без скриптов всё видно сразу. */
+  .js .reveal {
+    opacity: 0;
+    transform: translateY(22px);
+    transition:
+      opacity 0.6s ease,
+      transform 0.7s cubic-bezier(0.2, 0.8, 0.25, 1);
+  }
+
+  .js .reveal.is-in {
+    opacity: 1;
+    transform: none;
   }
 
   @media (prefers-reduced-motion: reduce) {
