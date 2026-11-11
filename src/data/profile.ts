@@ -2,13 +2,12 @@ import { SITE_URL } from '../../site.config.mjs';
 
 /**
  * Все личные данные сайта лежат здесь.
- * Сейчас это ЗАГЛУШКИ: замените значения на настоящие.
  */
 export const profile = {
   // Имя и фамилия. Первое слово — имя, второе — фамилия.
   name: {
-    en: 'Name Surname', // ЗАГЛУШКА: имя и фамилия латиницей
-    ru: 'Имя Фамилия', // ЗАГЛУШКА: имя и фамилия кириллицей
+    en: 'Daniil Evsegneev',
+    ru: 'Даниил Евсегнеев',
   },
 
   // Одна строка о деле.
@@ -24,8 +23,8 @@ export const profile = {
   },
 
   // Ники без символа @.
-  telegram: 'your_telegram', // ЗАГЛУШКА
-  instagram: 'your_instagram', // ЗАГЛУШКА
+  telegram: 'izyway',
+  instagram: 'izywayy',
 
   // Адрес сайта: зашит в QR-код на обороте карточки.
   // Меняется в одном месте — в файле site.config.mjs.

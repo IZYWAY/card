@@ -24,7 +24,7 @@ export const ui = {
     optionBDesc:
       'No card. The name fills the screen: the letters fly into place and swell under your finger or as the phone tilts.',
     open: 'Open',
-    draft: 'Draft. Name and usernames are placeholders',
+    draft: 'Draft. The site address in the QR code is a placeholder',
   },
   ru: {
     telegram: 'Написать в Telegram',
@@ -48,6 +48,6 @@ export const ui = {
     optionBDesc:
       'Без карточки. Имя во весь экран: буквы слетаются на место и набухают под пальцем или при наклоне телефона.',
     open: 'Открыть',
-    draft: 'Черновик. Имя и ники пока заглушки',
+    draft: 'Черновик. Адрес сайта в QR-коде пока временный',
   },
 } satisfies Record<Lang, Record<string, string>>;

@@ -3,8 +3,10 @@ import QRCode from 'qrcode';
 /**
  * Собирает QR-код как SVG во время сборки сайта (в браузере ничего не генерируется).
  * Возвращает размер сетки и одну строку пути со всеми тёмными модулями.
+ * `quiet` — светлое поле вокруг кода в клетках; по стандарту нужно не меньше 4,
+ * иначе камеры читают код ненадёжно.
  */
-export function qrPath(text: string, quiet = 2) {
+export function qrPath(text: string, quiet = 4) {
   const { modules } = QRCode.create(text, { errorCorrectionLevel: 'M' });
   const n = modules.size;
   let d = '';

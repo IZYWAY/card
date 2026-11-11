@@ -19,8 +19,8 @@
 | Адрес сайта (от него зависят QR-код, ссылки и базовый путь) | `site.config.mjs` |
 | Подписи на кнопках и подсказки | `src/data/ui.ts` |
 
-Сейчас в `src/data/profile.ts` стоят заглушки: `Name Surname`, `your_telegram`, `your_instagram`,
-а адрес сайта — `https://example.com/`.
+Имя и ники настоящие. Адрес сайта в `site.config.mjs` пока временный (`https://example.com/`):
+его нужно заменить, когда появится хостинг.
 
 ## Запуск
 

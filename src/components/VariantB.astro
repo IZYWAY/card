@@ -17,6 +17,9 @@ const t = ui[lang];
 const name = profile.name[lang];
 const words = name.split(/\s+/).map((w) => [...w]);
 const longest = Math.max(...words.map((w) => w.length));
+// Буквы с «хвостами» и надстрочными знаками (Д, Ц, Щ, Й, Ё, Q) задевают соседнюю строку,
+// поэтому для таких имён строки стоят чуть свободнее.
+const line = /[ДЦЩЙЁQ\u00C0-\u017F]/i.test(name) ? 1.06 : 0.9;
 
 // Откуда прилетает каждая буква. Числа постоянные (не случайные при каждой сборке),
 // чтобы анимация всегда была одинаковой.
@@ -44,7 +47,7 @@ const hint = {
 
 <main class="b">
   <div class="top">
-    <h1 class="name" data-name aria-label={name} style={`--n:${longest}`}>
+    <h1 class="name" data-name aria-label={name} style={`--n:${longest};--line:${line}`}>
       {
         letters.map((word) => (
           <span class="word" aria-hidden="true">
@@ -81,7 +84,6 @@ const hint = {
 
   const REST = 540; // жирность буквы в покое
   const HOT = 900; // жирность буквы под курсором
-  const LINE = 0.9; // высота строки в долях размера шрифта (как в CSS)
   const MAX_STRETCH = 2.4; // во сколько раз буквы можно вытянуть по высоте
 
   const nameEl = document.querySelector<HTMLElement>('[data-name]')!;
@@ -90,6 +92,8 @@ const hint = {
   const glyphs = cells.map((c) => c.firstElementChild as HTMLElement);
   const gyroButton = document.querySelector<HTMLButtonElement>('[data-gyro]')!;
   const hintEl = document.querySelector<HTMLElement>('[data-hint]')!;
+  // Высота строки в долях размера шрифта: задаётся при сборке в зависимости от букв имени.
+  const LINE = parseFloat(getComputedStyle(nameEl).getPropertyValue('--line')) || 0.9;
 
   let widths: number[] = []; // ширина каждой буквы в долях размера шрифта
   let centers: { x: number; y: number }[] = [];
@@ -198,7 +202,7 @@ const hint = {
     font-size: var(--fs, min(calc((100vw - 2 * var(--gutter)) / (var(--n) * 0.98)), 24svh));
     font-family: var(--display);
     font-weight: 900;
-    line-height: calc(0.9 * var(--stretch, 1));
+    line-height: calc(var(--line, 0.9) * var(--stretch, 1));
     text-transform: uppercase;
     color: var(--ink);
     touch-action: pan-y;

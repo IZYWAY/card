@@ -188,8 +188,12 @@ const qr = qrPath(profile.siteUrl);
     transform-style: preserve-3d;
   }
   .tilt {
-    transform: rotateX(calc(var(--y) * -13deg)) rotateY(calc(var(--x) * 16deg));
+    transform: rotateX(calc(var(--y) * var(--amp, 1) * -13deg)) rotateY(calc(var(--x) * var(--amp, 1) * 16deg));
     will-change: transform;
+  }
+  /* Оборотом карточку показывают под камеру: там она почти не качается, чтобы QR читался сразу. */
+  .is-flipped .tilt {
+    --amp: 0.3;
   }
   .flip {
     transition: transform 0.9s cubic-bezier(0.2, 0.9, 0.25, 1.08);
@@ -425,7 +429,7 @@ const qr = qrPath(profile.siteUrl);
     right: 2.4em;
     aspect-ratio: 1;
     display: grid;
-    padding: 0.5em;
+    padding: 0.15em;
     border-radius: 0.9em;
     background: #f5f6f9;
     color: var(--card);
