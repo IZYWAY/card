@@ -39,7 +39,11 @@
 
   function swap(next: Document) {
     document.title = next.title;
-    root.lang = next.documentElement.lang;
+    // Язык берём из разметки страницы, а если его там нет — из выбранного пункта EN / RU.
+    root.lang =
+      next.documentElement.lang ||
+      next.querySelector('.top__lang a[aria-current="true"]')?.getAttribute('lang') ||
+      root.lang;
     for (const sel of ['meta[name="description"]', 'meta[property="og:title"]', 'meta[property="og:description"]']) {
       const content = next.querySelector(sel)?.getAttribute('content');
       if (content) document.querySelector(sel)?.setAttribute('content', content);
