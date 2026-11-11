@@ -7,10 +7,9 @@
  * поэтому на первую загрузку не влияет.
  */
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import RAPIER from '@dimforge/rapier3d';
-import { type BadgeContent, drawBack, drawBand, drawFront, drawShadow, loadFonts } from './textures';
+import { BAND_PX, type BadgeContent, drawBack, drawBand, drawFront, drawShadow, loadFonts } from './textures';
 
 // Размеры в условных единицах сцены. Пропорции бейджа — как у пластиковой карты.
 const CARD_W = 1.6;
@@ -38,7 +37,7 @@ export interface LanyardOptions {
 }
 
 export async function mountLanyard(o: LanyardOptions) {
-  await loadFonts(o.content);
+  await loadFonts();
 
   /* ---------- Отрисовка ---------- */
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -51,12 +50,29 @@ export async function mountLanyard(o: LanyardOptions) {
   o.host.appendChild(canvas);
 
   const scene = new THREE.Scene();
+  // Освещение как у бейджа Vercel: чёрная «студия» с полосами света.
+  // Они дают на глянцевой карточке узкие блики, бегущие при раскачивании.
+  const studio = new THREE.Scene();
+  studio.background = new THREE.Color(0x000000);
+  const strip = (intensity: number, pos: number[], rot: number[], scale: number[]) => {
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(1, 1),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 1, 1).multiplyScalar(intensity), side: THREE.DoubleSide }),
+    );
+    m.position.fromArray(pos);
+    m.rotation.set(rot[0], rot[1], rot[2]);
+    m.scale.fromArray(scale);
+    m.lookAt(0, 0, 0);
+    m.rotateZ(rot[2]);
+    studio.add(m);
+  };
+  strip(2, [0, -1, 5], [0, 0, Math.PI / 3], [100, 0.1, 1]);
+  strip(3, [-1, -1, 1], [0, 0, Math.PI / 3], [100, 0.1, 1]);
+  strip(3, [1, 1, 1], [0, 0, Math.PI / 3], [100, 0.1, 1]);
+  strip(10, [-10, 0, 14], [0, Math.PI / 2, Math.PI / 3], [100, 10, 1]);
   const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 0.55;
-  const key = new THREE.DirectionalLight(0xffffff, 0.9);
-  key.position.set(-3, 5, 6);
-  scene.add(key);
+  scene.environment = pmrem.fromScene(studio, 0.02).texture;
+  scene.add(new THREE.AmbientLight(0xffffff, Math.PI));
 
   const camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 200);
 
@@ -97,35 +113,25 @@ export async function mountLanyard(o: LanyardOptions) {
     return g;
   };
 
-  // Лицо: глянцевый пластик с переливом (iridescence) — это и есть «голограмма».
+  // Лицо: глянцевый лак поверх чёрного, как у бейджа Vercel.
   const frontMat = new THREE.MeshPhysicalMaterial({
     map: texture(drawFront(o.content)),
-    // Чуть приглушаем рассеянный свет, иначе тёмно-синий пластик выглядит серым.
-    color: 0x8f8db4,
-    roughness: 0.42,
-    metalness: 0,
-    clearcoat: 0.7,
-    clearcoatRoughness: 0.18,
-    iridescence: 0.5,
-    iridescenceIOR: 1.25,
-    // Подсветка самой картинкой: тёмно-синий остаётся тёмно-синим при любом свете.
-    emissive: 0xffffff,
-    emissiveIntensity: 0.3,
+    clearcoat: 1,
+    clearcoatRoughness: 0.15,
+    roughness: 0.3,
+    metalness: 0.5,
   });
-  // В новых версиях three.js диапазон толщины задаётся двумя полями.
-  Object.assign(frontMat, { iridescenceThicknessMinimum: 420, iridescenceThicknessMaximum: 900 });
-  frontMat.emissiveMap = frontMat.map;
-  // Оборот: матовый, без переливов — чтобы QR читался камерой.
-  const backMat = new THREE.MeshStandardMaterial({
+  // Оборот белый и полуматовый: блики не должны мешать камере читать QR.
+  const backMat = new THREE.MeshPhysicalMaterial({
     map: texture(drawBack(o.content)),
-    roughness: 0.62,
+    clearcoat: 0.5,
+    clearcoatRoughness: 0.35,
+    roughness: 0.55,
     metalness: 0,
     emissive: 0xffffff,
-    emissiveMap: null,
-    emissiveIntensity: 0,
+    emissiveIntensity: 0.18,
   });
   backMat.emissiveMap = backMat.map;
-  backMat.emissiveIntensity = 0.35;
 
   const front = new THREE.Mesh(faceGeo(), frontMat);
   front.position.z = CARD_D / 2 + 0.0005;
@@ -137,28 +143,27 @@ export async function mountLanyard(o: LanyardOptions) {
     new THREE.ExtrudeGeometry(shape, { depth: CARD_D, bevelEnabled: false, curveSegments: 12 }),
     [
       new THREE.MeshBasicMaterial({ visible: false }),
-      new THREE.MeshStandardMaterial({ color: 0x2a2850, roughness: 0.4, metalness: 0.3 }),
+      new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4, metalness: 0.4 }),
     ],
   );
   edge.position.z = -CARD_D / 2;
   card.add(front, back, edge);
 
-  // Карабин: зажим на прорези, перемычка и кольцо, в которое продета лента.
-  const metal = new THREE.MeshStandardMaterial({ color: 0x7c8190, metalness: 1, roughness: 0.3 });
-  const clamp = new THREE.Mesh(new RoundedBoxGeometry(0.27, 0.2, 0.06, 3, 0.025), metal);
-  clamp.position.set(0, CARD_H / 2 - 0.09, 0);
-  const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.2, 16), metal);
-  pin.position.set(0, CARD_H / 2 + 0.07, 0);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.022, 14, 40), metal);
-  ring.position.set(0, ANCHOR_Y - 0.07, 0);
-  card.add(clamp, pin, ring);
+  // Карабин из тёмного металла: узкий зажим на верхнем краю и петля, в которую продета лента.
+  const metal = new THREE.MeshStandardMaterial({ color: 0x353535, metalness: 1, roughness: 0.3 });
+  const clamp = new THREE.Mesh(new RoundedBoxGeometry(0.085, 0.38, 0.12, 3, 0.03), metal);
+  clamp.position.set(0, CARD_H / 2 + 0.02, 0);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.024, 16, 48), metal);
+  ring.scale.set(1.25, 1, 1);
+  ring.position.set(0, ANCHOR_Y - 0.01, 0);
+  card.add(clamp, ring);
 
   const pickables = [front, back, edge, clamp];
 
   // Тень на «стене» за бейджем.
   const shadow = new THREE.Mesh(
     new THREE.PlaneGeometry(CARD_W * 1.45, CARD_H * 1.3),
-    new THREE.MeshBasicMaterial({ map: texture(drawShadow(), false), transparent: true, depthWrite: false, opacity: 0.4 }),
+    new THREE.MeshBasicMaterial({ map: texture(drawShadow(), false), transparent: true, depthWrite: false, opacity: 0.3 }),
   );
   shadow.renderOrder = -1;
   scene.add(shadow);
@@ -383,7 +388,7 @@ export async function mountLanyard(o: LanyardOptions) {
       side.normalize().multiplyScalar(BAND_W / 2);
       bandPos.set([p.x - side.x, p.y - side.y, p.z - side.z, p.x + side.x, p.y + side.y, p.z + side.z], i * 6);
       // Текстура повторяется вдоль ленты, отсчёт снизу, от карточки.
-      const v = ((1 - i / SEG) * length) / (BAND_W * (1600 / 160));
+      const v = ((1 - i / SEG) * length) / (BAND_W * (BAND_PX.along / BAND_PX.across));
       bandUv.set([1, v, 0, v], i * 4);
     }
     bandGeo.attributes.position.needsUpdate = true;

@@ -1,5 +1,8 @@
 ---
 import QRCode from 'qrcode';
+// Шрифт бейджа — Geist, как у бейджа Vercel (лицензия OFL).
+import '@fontsource-variable/geist/wght.css';
+import '@fontsource-variable/geist-mono/wght.css';
 import Actions from './Actions.astro';
 import { copy, profile, type Lang } from '../data/profile';
 
@@ -18,8 +21,10 @@ const qr = await QRCode.toString(profile.site, {
   type: 'svg',
   margin: 0,
   errorCorrectionLevel: 'M',
-  color: { dark: '#14132B', light: '#0000' },
+  color: { dark: '#000000', light: '#0000' },
 });
+
+const initials = `${t.first[0]}${t.last[0]}`.toUpperCase();
 ---
 
 <section class="heroA">
@@ -34,32 +39,33 @@ const qr = await QRCode.toString(profile.site, {
       data-qr={qrBits}
       data-qr-size={qrModules.size}
       data-site={profile.siteLabel}
-      data-band={profile.telegram.handle.replace('@', '')}
+      data-tag={t.badgeTag}
+      data-qr-title={t.qrTitle}
+      data-handle={profile.telegram.handle}
     >
       <span class="badge__tilt">
         <span class="badge__flip">
+          <!-- Рисунок в духе бейджа Vercel Ship '24: вместо логотипа и слова SHIP — инициалы. -->
           <span class="badge__face badge__front">
-            <span class="badge__rings" aria-hidden="true"></span>
-            <span class="badge__slot" aria-hidden="true"></span>
-            <span class="badge__role mono">{t.role}</span>
+            <span class="badge__mark" aria-hidden="true">{initials}</span>
+            <span class="badge__big" aria-hidden="true">
+              {[...initials].map((letter) => <span>{letter}</span>)}
+            </span>
             <span class="badge__name">
               <span>{t.first}</span>
               <span>{t.last}</span>
             </span>
-            <span class="badge__makes mono">
-              {t.makes.map((item) => <span>{item}</span>)}
-            </span>
-            <span class="badge__foot mono">
-              <span>{profile.telegram.handle}</span>
-              <span class="badge__seal" aria-hidden="true">QR</span>
-            </span>
-            <span class="badge__sheen" aria-hidden="true"></span>
+            <span class="badge__role mono">{t.role}</span>
+            <span class="badge__wordmark" aria-hidden="true">{initials}<span>{t.badgeTag}</span></span>
           </span>
           <span class="badge__face badge__back">
-            <span class="badge__slot" aria-hidden="true"></span>
+            <span class="badge__qrtitle mono">{t.qrTitle}</span>
             <span class="badge__qr" set:html={qr} />
-            <span class="badge__site mono">{profile.siteLabel}</span>
-            <span class="badge__scan">{t.scan}</span>
+            <span class="badge__site mono">
+              <span>{profile.siteLabel}</span>
+              <span>{profile.telegram.handle}</span>
+            </span>
+            <span class="badge__wordmark" aria-hidden="true">{initials}<span>{t.badgeTag}</span></span>
           </span>
         </span>
       </span>
@@ -185,10 +191,12 @@ const qr = await QRCode.toString(profile.site, {
 
   .badge__tilt {
     transform: rotateX(var(--rx)) rotateY(var(--ry));
-    filter: drop-shadow(0 26px 30px rgba(20, 19, 43, 0.28));
+    filter: drop-shadow(0 26px 30px rgba(10, 10, 20, 0.3));
   }
 
+  /* Все размеры внутри карточки считаются от её ширины (единицы cqw). */
   .badge__flip {
+    container-type: inline-size;
     transition: transform 0.75s cubic-bezier(0.2, 0.85, 0.25, 1);
   }
 
@@ -201,173 +209,113 @@ const qr = await QRCode.toString(profile.site, {
     inset: 0;
     display: flex;
     flex-direction: column;
-    container-type: inline-size;
-    border-radius: 22px;
+    border-radius: 18px;
     overflow: hidden;
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
     text-align: left;
+    font-family: 'Geist Variable', 'Helvetica Neue', Arial, sans-serif;
   }
 
-  /* Лицевая сторона */
+  /* Лицевая сторона: чёрная, огромные инициалы столбиком справа. */
   .badge__front {
-    padding: 9%;
-    border: 1.5px solid transparent;
-    background:
-      linear-gradient(var(--card), var(--card)) padding-box,
-      linear-gradient(
-          calc(120deg + var(--ry) * 4),
-          var(--foil-1),
-          var(--foil-2),
-          var(--foil-3),
-          var(--foil-1)
-        )
-        border-box;
+    padding: 6.25cqw;
+    background: #000;
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   }
 
-  .badge__rings {
+  .badge__mark {
+    font-weight: 700;
+    font-size: 5.2cqw;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  .badge__big {
     position: absolute;
-    inset: 0;
-    background: repeating-radial-gradient(
-      circle at 88% 8%,
-      rgba(255, 255, 255, 0.055) 0 1px,
-      transparent 1px 10px
-    );
+    top: 7%;
+    right: 5%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-weight: 640;
+    font-size: 54cqw;
+    line-height: 0.92;
+    letter-spacing: -0.04em;
   }
 
-  .badge__slot {
-    align-self: center;
-    width: 22cqw;
-    height: 3.2cqw;
-    border-radius: 99px;
-    background: var(--bg);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
-    position: relative;
-  }
-
-  .badge__role {
-    position: relative;
-    margin-top: 9cqw;
-    font-size: max(9px, 3.3cqw);
-    color: #b9b7e6;
+  /* Тонкий «разлом» во второй букве, как в 3D-версии. */
+  .badge__big span:last-child {
+    clip-path: polygon(0 0, 100% 0, 100% 52%, 0 52%, 0 58%, 100% 58%, 100% 100%, 0 100%);
   }
 
   .badge__name {
     position: relative;
     display: flex;
     flex-direction: column;
-    margin-top: 4cqw;
-    font-family: var(--display);
-    font-weight: 700;
-    font-size: 12.6cqw;
-    line-height: 1.08;
-    letter-spacing: -0.01em;
-    text-transform: uppercase;
-    color: transparent;
-    background: linear-gradient(
-      115deg,
-      var(--foil-1) 0%,
-      var(--foil-2) 20%,
-      var(--foil-3) 40%,
-      var(--foil-1) 60%,
-      var(--foil-2) 80%,
-      var(--foil-3) 100%
-    );
-    background-size: 260% 260%;
-    background-position: calc(var(--mx) * 100%) calc(var(--my) * 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-  }
-
-  .badge__makes {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 2.4cqw;
     margin-top: auto;
-    font-size: max(9px, 3.3cqw);
-    color: #e6e5fb;
+    font-weight: 600;
+    font-size: 7.4cqw;
+    line-height: 1.06;
+    letter-spacing: -0.02em;
   }
 
-  .badge__makes span {
-    padding-top: 2.4cqw;
-    border-top: 1px solid rgba(255, 255, 255, 0.14);
-  }
-
-  .badge__foot {
+  .badge__role {
     position: relative;
-    display: flex;
-    justify-content: space-between;
+    margin-top: 3.5cqw;
+    font-family: 'Geist Mono Variable', ui-monospace, monospace;
+    font-size: max(8px, 2.7cqw);
+    letter-spacing: 0.06em;
+    color: #d6d6d6;
+  }
+
+  .badge__wordmark {
+    position: relative;
+    display: inline-flex;
     align-items: center;
-    margin-top: 6cqw;
-    font-size: max(9px, 3.3cqw);
-    color: #b9b7e6;
+    gap: 0.28em;
+    margin-top: 11cqw;
+    font-weight: 600;
+    font-size: 4.4cqw;
+    line-height: 1;
+    letter-spacing: -0.03em;
   }
 
-  .badge__seal {
-    display: grid;
+  .badge__wordmark span {
+    display: inline-grid;
     place-items: center;
-    width: 14cqw;
-    height: 14cqw;
-    border-radius: 50%;
-    color: var(--card);
-    font-weight: 700;
-    background: conic-gradient(
-      from calc(var(--mx) * 360deg),
-      var(--foil-1),
-      var(--foil-2),
-      var(--foil-3),
-      var(--foil-1)
-    );
+    min-width: 0.86em;
+    height: 0.86em;
+    padding: 0 0.16em;
+    border: 0.065em solid currentColor;
+    border-radius: 0.2em;
+    font-size: 0.5em;
+    letter-spacing: 0;
   }
 
-  .badge__sheen {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-      radial-gradient(
-        circle at calc(var(--mx) * 100%) calc(var(--my) * 100%),
-        rgba(255, 255, 255, 0.2),
-        transparent 52%
-      ),
-      linear-gradient(
-        115deg,
-        transparent 32%,
-        rgba(111, 227, 255, 0.2) 43%,
-        rgba(255, 122, 217, 0.2) 50%,
-        rgba(255, 226, 122, 0.2) 57%,
-        transparent 68%
-      );
-    background-size:
-      100% 100%,
-      240% 240%;
-    background-position:
-      0 0,
-      calc(var(--mx) * 100%) calc(var(--my) * 100%);
-    mix-blend-mode: screen;
-  }
-
-  /* Оборот с QR */
+  /* Оборот: белый, QR-код по центру. */
   .badge__back {
     transform: rotateY(180deg);
     align-items: center;
-    padding: 9%;
-    background: #f7f8fa;
-    color: var(--card);
-    border: 1.5px solid #d5d8e0;
+    padding: 6.25cqw;
+    background: #fff;
+    color: #000;
     text-align: center;
   }
 
-  .badge__back .badge__slot {
-    background: var(--bg);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18);
+  .badge__qrtitle {
+    margin-top: 17cqw;
+    font-family: 'Geist Mono Variable', ui-monospace, monospace;
+    font-weight: 600;
+    font-size: max(9px, 3.4cqw);
+    letter-spacing: 0.1em;
   }
 
   .badge__qr {
     display: block;
-    width: 100%;
-    margin-top: auto;
+    width: 74%;
+    margin-top: 6cqw;
   }
 
   .badge__qr :global(svg) {
@@ -377,19 +325,19 @@ const qr = await QRCode.toString(profile.site, {
   }
 
   .badge__site {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2cqw;
     margin-top: 6cqw;
-    font-size: max(9px, 3.4cqw);
+    font-family: 'Geist Mono Variable', ui-monospace, monospace;
+    font-size: max(9px, 3cqw);
     text-transform: none;
     letter-spacing: 0.02em;
+    color: #222;
   }
 
-  .badge__scan {
-    margin-top: 2cqw;
-    margin-bottom: auto;
-    font-size: max(12px, 4.2cqw);
-    line-height: 1.3;
-    color: var(--ink-soft);
-    text-wrap: balance;
+  .badge__back .badge__wordmark {
+    margin-top: auto;
   }
 
   .heroA__hint {
@@ -539,13 +487,12 @@ const qr = await QRCode.toString(profile.site, {
             role: text('.badge__role'),
             first: text('.badge__name span:first-child'),
             last: text('.badge__name span:last-child'),
-            makes: [...card.querySelectorAll('.badge__makes span')].map((el) => el.textContent?.trim() ?? ''),
-            handle: text('.badge__foot span:first-child'),
+            handle: card.dataset.handle ?? '',
             site: card.dataset.site ?? '',
-            scan: text('.badge__scan'),
             qr: card.dataset.qr ?? '',
             qrSize: Number(card.dataset.qrSize ?? 0),
-            band: card.dataset.band ?? '',
+            tag: card.dataset.tag ?? '',
+            qrTitle: card.dataset.qrTitle ?? '',
           },
           isFlipped: () => card.getAttribute('aria-pressed') === 'true',
           onTap: () => card.click(),

@@ -21,6 +21,8 @@ export const copy = {
     flipToQr: 'Show QR code',
     flipHint: 'Tap the card: QR code on the back',
     dragHint: 'Pull the badge. Tap it to see the QR code',
+    badgeTag: 'AI',
+    qrTitle: 'Scan to open',
     description:
       'Daniil Evsegneev builds AI-powered products for business: Telegram mini apps, apps, websites and custom tools.',
 
@@ -88,6 +90,8 @@ export const copy = {
     flipToQr: 'Показать QR-код',
     flipHint: 'Нажмите на карточку: на обороте QR-код',
     dragHint: 'Потяните бейдж. Нажмите, чтобы увидеть QR-код',
+    badgeTag: 'ИИ',
+    qrTitle: 'Наведите камеру',
     description:
       'Даниил Евсегнеев делает ИИ-продукты для бизнеса: мини-приложения в Telegram, приложения, сайты и программы под заказ.',
 
