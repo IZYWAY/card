@@ -1,0 +1,52 @@
+---
+import '../styles/global.css';
+import unboundedLatin from '../assets/fonts/unbounded-latin.woff2?url';
+import unboundedCyrillic from '../assets/fonts/unbounded-cyrillic.woff2?url';
+import onestLatin from '../assets/fonts/onest-latin.woff2?url';
+import onestCyrillic from '../assets/fonts/onest-cyrillic.woff2?url';
+import { profile, type Lang } from '../data/profile';
+import { ui } from '../data/ui';
+import { localized, path } from '../lib/paths';
+
+interface Props {
+  lang: Lang;
+  /** Путь страницы без языка: «/», «/a/», «/b/». */
+  page: string;
+  title?: string;
+}
+
+const { lang, page, title } = Astro.props;
+const t = ui[lang];
+const name = profile.name[lang];
+const fullTitle = title ? `${title} · ${name}` : name;
+const absolute = (p: string) => new URL(p, Astro.site).href;
+
+// Заранее подгружаем только те файлы шрифтов, которые нужны этому языку.
+const preload =
+  lang === 'ru' ? [unboundedCyrillic, onestCyrillic, onestLatin] : [unboundedLatin, onestLatin];
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#E9EBEF" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={profile.tagline[lang]} />
+    <link rel="icon" href={path('/favicon.svg')} type="image/svg+xml" />
+    {preload.map((href) => <link rel="preload" as="font" type="font/woff2" href={href} crossorigin />)}
+    <link rel="alternate" hreflang="en" href={absolute(localized('en', page))} />
+    <link rel="alternate" hreflang="ru" href={absolute(localized('ru', page))} />
+  </head>
+  <body>
+    <header class="bar">
+      {page === '/' ? <span /> : <a class="back" href={localized(lang, '/')}>{t.variants}</a>}
+      <nav class="lang" aria-label={t.langLabel}>
+        <a href={localized('en', page)} aria-current={lang === 'en' ? 'true' : undefined} lang="en" hreflang="en"><span>EN</span></a>
+        <a href={localized('ru', page)} aria-current={lang === 'ru' ? 'true' : undefined} lang="ru" hreflang="ru"><span>RU</span></a>
+      </nav>
+    </header>
+    <slot />
+  </body>
+</html>

@@ -1,0 +1,337 @@
+---
+/**
+ * Вариант Б: без карточки, крупная живая типографика.
+ * Имя во всю ширину экрана шрифтом Unbounded. Буквы слетаются при загрузке,
+ * а потом «набухают» и выдвигаются цветными слоями там, куда наведён курсор,
+ * палец или куда наклонён телефон.
+ */
+import Actions from './Actions.astro';
+import { profile, type Lang } from '../data/profile';
+import { ui } from '../data/ui';
+
+interface Props {
+  lang: Lang;
+}
+const { lang } = Astro.props;
+const t = ui[lang];
+const name = profile.name[lang];
+const words = name.split(/\s+/).map((w) => [...w]);
+const longest = Math.max(...words.map((w) => w.length));
+
+// Откуда прилетает каждая буква. Числа постоянные (не случайные при каждой сборке),
+// чтобы анимация всегда была одинаковой.
+let seed = 7;
+const rand = () => {
+  seed = (seed * 16807) % 2147483647;
+  return seed / 2147483647 - 0.5;
+};
+let index = 0;
+const letters = words.map((w) =>
+  w.map((ch) => ({
+    ch,
+    i: index++,
+    sx: (rand() * 90).toFixed(1),
+    sy: (rand() * 70 + 12).toFixed(1),
+    sr: (rand() * 110).toFixed(0),
+  })),
+);
+
+const hint = {
+  en: { touch: 'Slide a finger across the name', mouse: 'Move the cursor across the name' },
+  ru: { touch: 'Проведите пальцем по имени', mouse: 'Проведите курсором по имени' },
+}[lang];
+---
+
+<main class="b">
+  <div class="top">
+    <h1 class="name" data-name aria-label={name} style={`--n:${longest}`}>
+      {
+        letters.map((word) => (
+          <span class="word" aria-hidden="true">
+            {word.map((l) => (
+              <span class="l" style={`--i:${l.i};--sx:${l.sx}vw;--sy:${l.sy}svh;--sr:${l.sr}deg`}><span class="g">{l.ch}</span></span>
+            ))}
+          </span>
+        ))
+      }
+    </h1>
+    <p class="hint" data-hint>
+      <span class="for-touch">{hint.touch}</span>
+      <span class="for-mouse">{hint.mouse}</span>
+      <button type="button" class="gyro" data-gyro hidden>{t.enableTilt}</button>
+    </p>
+  </div>
+
+  <div class="who">
+    <p class="tagline">{profile.tagline[lang]}</p>
+    <Actions lang={lang} />
+  </div>
+</main>
+
+<noscript>
+  <style>
+    .b .l {
+      animation: none !important;
+    }
+  </style>
+</noscript>
+
+<script>
+  import { startMotion, bindGyroButton } from '../scripts/motion';
+
+  const REST = 540; // жирность буквы в покое
+  const HOT = 900; // жирность буквы под курсором
+  const LINE = 0.9; // высота строки в долях размера шрифта (как в CSS)
+  const MAX_STRETCH = 2.4; // во сколько раз буквы можно вытянуть по высоте
+
+  const nameEl = document.querySelector<HTMLElement>('[data-name]')!;
+  const wordEls = [...nameEl.querySelectorAll<HTMLElement>('.word')];
+  const cells = [...nameEl.querySelectorAll<HTMLElement>('.l')];
+  const glyphs = cells.map((c) => c.firstElementChild as HTMLElement);
+  const gyroButton = document.querySelector<HTMLButtonElement>('[data-gyro]')!;
+  const hintEl = document.querySelector<HTMLElement>('[data-hint]')!;
+
+  let widths: number[] = []; // ширина каждой буквы в долях размера шрифта
+  let centers: { x: number; y: number }[] = [];
+  let boxW = 0;
+  let boxH = 0;
+
+  /** Меряет буквы в самом жирном начертании: ячейка буквы не меняет ширину, когда буква «набухает». */
+  function measure() {
+    const probe = 200;
+    nameEl.classList.add('is-measuring');
+    nameEl.style.setProperty('--fs', `${probe}px`);
+    cells.forEach((c) => (c.style.width = ''));
+    widths = cells.map((c) => c.offsetWidth / probe);
+    cells.forEach((c, i) => (c.style.width = `${widths[i].toFixed(4)}em`));
+    nameEl.classList.remove('is-measuring');
+  }
+
+  /** Подбирает размер шрифта так, чтобы самое длинное слово встало ровно во всю ширину. */
+  function fit() {
+    let i = 0;
+    const widest = Math.max(...wordEls.map((w) => [...w.children].reduce((sum) => sum + widths[i++], 0)));
+    const top = nameEl.parentElement!;
+    const lines = wordEls.length;
+    nameEl.style.setProperty('--fs', '0px'); // чтобы само имя не влияло на замер свободного места
+    // Сколько места по высоте есть под имя (без подсказки под ним).
+    const cs = getComputedStyle(top);
+    const room = top.clientHeight - hintEl.offsetHeight - parseFloat(cs.rowGap || '0') - parseFloat(cs.paddingTop) - 4;
+    const size = Math.min(top.clientWidth / widest, room / (lines * LINE));
+    // На узком экране буквы вытягиваются вверх, чтобы имя заняло экран, а не полоску.
+    const stretch = Math.max(1, Math.min(MAX_STRETCH, room / (lines * LINE * size)));
+    nameEl.style.setProperty('--fs', `${size.toFixed(2)}px`);
+    nameEl.style.setProperty('--stretch', stretch.toFixed(3));
+
+    boxW = nameEl.offsetWidth;
+    boxH = nameEl.offsetHeight;
+    centers = cells.map((c) => ({
+      x: c.offsetLeft + c.offsetWidth / 2,
+      y: c.offsetTop + c.offsetHeight / 2,
+    }));
+  }
+
+  const lastWeight: number[] = [];
+  function render(x: number, y: number) {
+    // Точка внимания внутри блока с именем.
+    const fx = boxW / 2 + (x * boxW) / 2;
+    const fy = boxH / 2 + (y * boxH) / 2;
+    const radius = Math.max(boxW * 0.42, 150);
+    nameEl.style.setProperty('--tx', x.toFixed(3));
+    nameEl.style.setProperty('--ty', y.toFixed(3));
+    for (let i = 0; i < glyphs.length; i++) {
+      const d = Math.hypot(centers[i].x - fx, centers[i].y - fy);
+      const p = Math.max(0, 1 - d / radius) ** 2;
+      const weight = Math.round((REST + (HOT - REST) * p) / 4) * 4;
+      if (weight !== lastWeight[i]) {
+        lastWeight[i] = weight;
+        glyphs[i].style.setProperty('--w', String(weight));
+        glyphs[i].style.setProperty('--p', p.toFixed(3));
+      }
+    }
+  }
+
+  function start() {
+    measure();
+    fit();
+    new ResizeObserver(fit).observe(nameEl.parentElement!);
+    nameEl.classList.add('is-ready'); // запускает сборку букв
+
+    const motion = startMotion(nameEl, render, (s) => [Math.sin(s * 0.7) * 0.9, Math.sin(s * 1.1 + 0.6) * 0.7]);
+    bindGyroButton(gyroButton, motion);
+  }
+
+  // Ждём шрифт (иначе буквы померяются неверно), но не дольше 1,2 секунды.
+  let started = false;
+  const once = () => {
+    if (started) return;
+    started = true;
+    start();
+  };
+  document.fonts.load('900 1em Unbounded', nameEl.textContent ?? '').then(once, once);
+  setTimeout(once, 1200);
+</script>
+
+<style>
+  .b {
+    display: grid;
+    grid-template-rows: 1fr auto;
+    gap: 20px;
+    min-height: calc(100svh - var(--bar));
+    padding: 0 var(--gutter) max(18px, env(safe-area-inset-bottom));
+  }
+
+  .top {
+    display: grid;
+    align-content: center;
+    padding-top: clamp(4px, 2svh, 24px);
+    gap: clamp(14px, 3svh, 28px);
+    min-width: 0;
+  }
+
+  /* ---------- Имя ---------- */
+  .name {
+    --tx: 0;
+    --ty: 0;
+    position: relative;
+    /* До запуска скрипта размер прикидывается по числу букв, затем подгоняется точно. */
+    font-size: var(--fs, min(calc((100vw - 2 * var(--gutter)) / (var(--n) * 0.98)), 24svh));
+    font-family: var(--display);
+    font-weight: 900;
+    line-height: calc(0.9 * var(--stretch, 1));
+    text-transform: uppercase;
+    color: var(--ink);
+    touch-action: pan-y;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .word {
+    display: block;
+    white-space: nowrap;
+  }
+  .l {
+    display: inline-block;
+    text-align: center;
+    animation: fly 1s cubic-bezier(0.16, 0.9, 0.22, 1.04) both paused;
+    animation-delay: calc(var(--i) * 55ms + 80ms);
+  }
+  .is-ready .l {
+    animation-play-state: running;
+  }
+  @keyframes fly {
+    from {
+      opacity: 0;
+      transform: translate(var(--sx), var(--sy)) rotate(var(--sr)) scale(0.35);
+    }
+    35% {
+      opacity: 1;
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .g {
+    --w: 540;
+    --p: 0;
+    /* Глубина цветных слоёв: чем ближе буква к точке внимания, тем сильнее она выдвинута. */
+    --d: calc(0.006em + var(--p) * 0.022em);
+    display: inline-block;
+    transform: scaleY(var(--stretch, 1));
+    font-variation-settings: 'wght' var(--w);
+    text-shadow:
+      calc(var(--tx) * var(--d) * -1) calc(var(--ty) * var(--d) * -1) 0 var(--foil-1),
+      calc(var(--tx) * var(--d) * -2) calc(var(--ty) * var(--d) * -2) 0 var(--foil-1),
+      calc(var(--tx) * var(--d) * -3) calc(var(--ty) * var(--d) * -3) 0 var(--foil-2),
+      calc(var(--tx) * var(--d) * -4) calc(var(--ty) * var(--d) * -4) 0 var(--foil-2),
+      calc(var(--tx) * var(--d) * -5) calc(var(--ty) * var(--d) * -5) 0 var(--foil-3),
+      calc(var(--tx) * var(--d) * -6) calc(var(--ty) * var(--d) * -6) 0 var(--foil-3);
+  }
+  .is-measuring .g {
+    font-variation-settings: 'wght' 900;
+  }
+
+  /* ---------- Подсказка ---------- */
+  .hint {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    font-family: var(--mono);
+    font-size: 10px;
+    line-height: 1.5;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .for-mouse {
+    display: none;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .for-mouse {
+      display: inline;
+    }
+    .for-touch {
+      display: none;
+    }
+  }
+  .gyro {
+    padding: 6px 10px;
+    border: 1px solid rgba(14, 14, 26, 0.3);
+    border-radius: 999px;
+    background: none;
+    color: var(--ink);
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    cursor: pointer;
+  }
+
+  /* ---------- Строка о деле и кнопки ---------- */
+  .who {
+    display: grid;
+    gap: 16px;
+  }
+  .who .tagline {
+    font-size: 17px;
+    max-width: 30em;
+  }
+
+  @media (min-width: 900px) {
+    .b {
+      padding-bottom: 36px;
+    }
+    .who {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: end;
+      gap: 40px;
+      padding-top: 22px;
+      border-top: 1px solid var(--line);
+    }
+    .who .tagline {
+      font-size: 21px;
+      line-height: 1.4;
+    }
+    .who :global(.actions) {
+      flex-wrap: nowrap;
+    }
+    .who :global(.btn) {
+      flex: none;
+    }
+    .hint {
+      font-size: 11px;
+    }
+  }
+
+  /* ---------- Без движения: имя просто стоит на месте ---------- */
+  @media (prefers-reduced-motion: reduce) {
+    .l {
+      animation: none;
+    }
+    .g {
+      --w: 800;
+      text-shadow: none;
+    }
+  }
+</style>

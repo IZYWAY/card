@@ -1,0 +1,168 @@
+@import './fonts.css';
+
+:root {
+  /* Палитра */
+  --pearl: #e9ebef;
+  --card: #14132b;
+  --ink: #0e0e1a;
+  --accent: #5b3df5;
+  --foil-1: #6fe3ff;
+  --foil-2: #ff7ad9;
+  --foil-3: #ffe27a;
+  --muted: #555869;
+  --line: rgba(14, 14, 26, 0.14);
+
+  /* Шрифты */
+  --display: 'Unbounded', 'Arial Black', system-ui, sans-serif;
+  --text: 'Onest', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'Martian Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --gutter: clamp(16px, 4.5vw, 40px);
+  --bar: 52px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  background: var(--pearl);
+  color: var(--ink);
+  font-family: var(--text);
+  font-size: 17px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+h1,
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* Верхняя полоска: назад к вариантам и переключатель языка */
+.bar {
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--bar);
+  padding-inline: var(--gutter);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.bar a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  text-decoration: none;
+  color: var(--muted);
+}
+.bar a:hover {
+  color: var(--ink);
+}
+.bar .back::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  margin-right: 8px;
+  border-left: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+}
+.lang {
+  display: flex;
+  gap: 2px;
+}
+.lang a {
+  padding-inline: 8px;
+}
+.lang a[aria-current='true'] {
+  color: var(--ink);
+}
+.lang a[aria-current='true'] span {
+  border-bottom: 1.5px solid var(--ink);
+  padding-bottom: 2px;
+}
+
+/* Кнопки */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.btn {
+  flex: 1 1 200px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 12px 20px;
+  border-radius: 14px;
+  font-family: var(--text);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    transform 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+.btn svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+.btn:active {
+  transform: scale(0.98);
+}
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: #4a2ee0;
+}
+.btn-ghost {
+  color: var(--ink);
+  border: 1.5px solid rgba(14, 14, 26, 0.28);
+}
+.btn-ghost:hover {
+  border-color: var(--ink);
+}
+
+.tagline {
+  color: #2b2c3a;
+  text-wrap: pretty;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition: none;
+  }
+}
