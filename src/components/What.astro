@@ -1,0 +1,67 @@
+---
+import { copy, type Lang } from '../data/profile';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = copy[lang];
+---
+
+<section class="section what" id="what">
+  <h2 class="section__title reveal">{t.whatTitle}</h2>
+  <ul class="what__list">
+    {
+      t.what.map((item) => (
+        <li class="what__item reveal">
+          <h3 class="what__name">{item.name}</h3>
+          <p class="what__line">{item.line}</p>
+        </li>
+      ))
+    }
+  </ul>
+</section>
+
+<style>
+  .what__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .what__item {
+    display: grid;
+    gap: 6px;
+    padding: 20px 0;
+    border-top: 1.5px solid var(--ink);
+  }
+
+  .what__item:last-child {
+    border-bottom: 1.5px solid var(--ink);
+  }
+
+  .what__name {
+    margin: 0;
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: clamp(19px, 5.4vw, 30px);
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+
+  .what__line {
+    margin: 0;
+    max-width: 44ch;
+    color: var(--ink-soft);
+  }
+
+  @media (min-width: 760px) {
+    .what__item {
+      grid-template-columns: 1.1fr 1fr;
+      align-items: baseline;
+      gap: 32px;
+      padding: 26px 0;
+    }
+  }
+</style>

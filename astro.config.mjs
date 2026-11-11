@@ -1,15 +1,9 @@
 import { defineConfig } from 'astro/config';
-import { SITE_URL } from './site.config.mjs';
 
-const url = new URL(SITE_URL);
-
+// Адрес и базовый путь сайта задаются только здесь.
 export default defineConfig({
-  site: url.origin,
-  // Базовый путь берётся из SITE_URL (site.config.mjs), отдельно его задавать не нужно.
-  base: url.pathname,
+  site: 'https://izyway.github.io',
+  base: '/card',
   trailingSlash: 'always',
-  build: {
-    // Стили встраиваются прямо в страницу: меньше запросов при первой загрузке.
-    inlineStylesheets: 'always',
-  },
+  devToolbar: { enabled: false },
 });
