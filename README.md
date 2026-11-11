@@ -1,2 +1,10 @@
 # card
-Personal business card site
+
+Сайт-визитка Даниила Евсегнеева: https://izyway.github.io/card/
+
+- Все личные данные: `src/data/profile.ts`
+- Адрес и базовый путь сайта: `astro.config.mjs`
+- Локальный просмотр: `npm install`, затем `npm run dev`
+- Публикация: `bash scripts/deploy.sh` (собирает сайт и выкладывает в ветку `gh-pages`)
+
+Сейчас на сайте два варианта первого экрана для выбора: `/a/` (карточка с фольгой) и `/b/` (крупная типографика).

@@ -1,0 +1,442 @@
+---
+import QRCode from 'qrcode';
+import Actions from './Actions.astro';
+import { copy, profile, type Lang } from '../data/profile';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = copy[lang];
+
+const qr = await QRCode.toString(profile.site, {
+  type: 'svg',
+  margin: 0,
+  errorCorrectionLevel: 'M',
+  color: { dark: '#14132B', light: '#0000' },
+});
+---
+
+<section class="heroA">
+  <div class="badgeWrap">
+    <button class="badge" type="button" aria-pressed="false" aria-label={t.flipToQr}>
+      <span class="badge__tilt">
+        <span class="badge__flip">
+          <span class="badge__face badge__front">
+            <span class="badge__rings" aria-hidden="true"></span>
+            <span class="badge__slot" aria-hidden="true"></span>
+            <span class="badge__role mono">{t.role}</span>
+            <span class="badge__name">
+              <span>{t.first}</span>
+              <span>{t.last}</span>
+            </span>
+            <span class="badge__makes mono">
+              {t.makes.map((item) => <span>{item}</span>)}
+            </span>
+            <span class="badge__foot mono">
+              <span>{profile.telegram.handle}</span>
+              <span class="badge__seal" aria-hidden="true">QR</span>
+            </span>
+            <span class="badge__sheen" aria-hidden="true"></span>
+          </span>
+          <span class="badge__face badge__back">
+            <span class="badge__slot" aria-hidden="true"></span>
+            <span class="badge__qr" set:html={qr} />
+            <span class="badge__site mono">{profile.siteLabel}</span>
+            <span class="badge__scan">{t.scan}</span>
+          </span>
+        </span>
+      </span>
+    </button>
+  </div>
+
+  <p class="heroA__hint mono">{t.flipHint}</p>
+  <h1 class="lead">{t.line}</h1>
+  <Actions lang={lang} />
+</section>
+
+<style>
+  @property --mx {
+    syntax: '<number>';
+    inherits: true;
+    initial-value: 0.5;
+  }
+  @property --my {
+    syntax: '<number>';
+    inherits: true;
+    initial-value: 0.5;
+  }
+  @property --rx {
+    syntax: '<angle>';
+    inherits: true;
+    initial-value: 0deg;
+  }
+  @property --ry {
+    syntax: '<angle>';
+    inherits: true;
+    initial-value: 0deg;
+  }
+
+  .heroA {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    padding: 12px var(--gutter) max(28px, env(safe-area-inset-bottom));
+    text-align: center;
+  }
+
+  .badgeWrap {
+    animation: drop 0.9s cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+  }
+
+  .badge {
+    display: block;
+    height: min(56svh, 470px);
+    max-width: 84vw;
+    aspect-ratio: 0.68;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: #f3f2ff;
+    font: inherit;
+    cursor: pointer;
+    perspective: 1000px;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    animation: sway 8s ease-in-out infinite;
+  }
+
+  .badge.is-live {
+    animation: none;
+  }
+
+  .badge__tilt,
+  .badge__flip {
+    display: block;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+  }
+
+  .badge__tilt {
+    transform: rotateX(var(--rx)) rotateY(var(--ry));
+    filter: drop-shadow(0 26px 30px rgba(20, 19, 43, 0.28));
+  }
+
+  .badge__flip {
+    transition: transform 0.75s cubic-bezier(0.2, 0.85, 0.25, 1);
+  }
+
+  .badge[aria-pressed='true'] .badge__flip {
+    transform: rotateY(180deg);
+  }
+
+  .badge__face {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    container-type: inline-size;
+    border-radius: 22px;
+    overflow: hidden;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    text-align: left;
+  }
+
+  /* Лицевая сторона */
+  .badge__front {
+    padding: 9%;
+    border: 1.5px solid transparent;
+    background:
+      linear-gradient(var(--card), var(--card)) padding-box,
+      linear-gradient(
+          calc(120deg + var(--ry) * 4),
+          var(--foil-1),
+          var(--foil-2),
+          var(--foil-3),
+          var(--foil-1)
+        )
+        border-box;
+  }
+
+  .badge__rings {
+    position: absolute;
+    inset: 0;
+    background: repeating-radial-gradient(
+      circle at 88% 8%,
+      rgba(255, 255, 255, 0.055) 0 1px,
+      transparent 1px 10px
+    );
+  }
+
+  .badge__slot {
+    align-self: center;
+    width: 22cqw;
+    height: 3.2cqw;
+    border-radius: 99px;
+    background: var(--bg);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+    position: relative;
+  }
+
+  .badge__role {
+    position: relative;
+    margin-top: 9cqw;
+    font-size: max(9px, 3.3cqw);
+    color: #b9b7e6;
+  }
+
+  .badge__name {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    margin-top: 4cqw;
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 12.6cqw;
+    line-height: 1.08;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+    color: transparent;
+    background: linear-gradient(
+      115deg,
+      var(--foil-1) 0%,
+      var(--foil-2) 20%,
+      var(--foil-3) 40%,
+      var(--foil-1) 60%,
+      var(--foil-2) 80%,
+      var(--foil-3) 100%
+    );
+    background-size: 260% 260%;
+    background-position: calc(var(--mx) * 100%) calc(var(--my) * 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+
+  .badge__makes {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2.4cqw;
+    margin-top: auto;
+    font-size: max(9px, 3.3cqw);
+    color: #e6e5fb;
+  }
+
+  .badge__makes span {
+    padding-top: 2.4cqw;
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+  }
+
+  .badge__foot {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 6cqw;
+    font-size: max(9px, 3.3cqw);
+    color: #b9b7e6;
+  }
+
+  .badge__seal {
+    display: grid;
+    place-items: center;
+    width: 14cqw;
+    height: 14cqw;
+    border-radius: 50%;
+    color: var(--card);
+    font-weight: 700;
+    background: conic-gradient(
+      from calc(var(--mx) * 360deg),
+      var(--foil-1),
+      var(--foil-2),
+      var(--foil-3),
+      var(--foil-1)
+    );
+  }
+
+  .badge__sheen {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        circle at calc(var(--mx) * 100%) calc(var(--my) * 100%),
+        rgba(255, 255, 255, 0.2),
+        transparent 52%
+      ),
+      linear-gradient(
+        115deg,
+        transparent 32%,
+        rgba(111, 227, 255, 0.2) 43%,
+        rgba(255, 122, 217, 0.2) 50%,
+        rgba(255, 226, 122, 0.2) 57%,
+        transparent 68%
+      );
+    background-size:
+      100% 100%,
+      240% 240%;
+    background-position:
+      0 0,
+      calc(var(--mx) * 100%) calc(var(--my) * 100%);
+    mix-blend-mode: screen;
+  }
+
+  /* Оборот с QR */
+  .badge__back {
+    transform: rotateY(180deg);
+    align-items: center;
+    padding: 9%;
+    background: #f7f8fa;
+    color: var(--card);
+    border: 1.5px solid #d5d8e0;
+    text-align: center;
+  }
+
+  .badge__back .badge__slot {
+    background: var(--bg);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18);
+  }
+
+  .badge__qr {
+    display: block;
+    width: 100%;
+    margin-top: auto;
+  }
+
+  .badge__qr :global(svg) {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  .badge__site {
+    margin-top: 6cqw;
+    font-size: max(9px, 3.4cqw);
+    text-transform: none;
+    letter-spacing: 0.02em;
+  }
+
+  .badge__scan {
+    margin-top: 2cqw;
+    margin-bottom: auto;
+    font-size: max(12px, 4.2cqw);
+    line-height: 1.3;
+    color: var(--ink-soft);
+    text-wrap: balance;
+  }
+
+  .heroA__hint {
+    margin: 4px 0 0;
+    color: var(--ink-soft);
+    font-size: 10px;
+  }
+
+  @keyframes sway {
+    0%,
+    100% {
+      --rx: 5deg;
+      --ry: -11deg;
+      --mx: 0.15;
+      --my: 0.25;
+    }
+    50% {
+      --rx: -4deg;
+      --ry: 11deg;
+      --mx: 0.85;
+      --my: 0.75;
+    }
+  }
+
+  @keyframes drop {
+    from {
+      opacity: 0;
+      transform: translateY(46px) rotate(-7deg) scale(0.94);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+</style>
+
+<script>
+  const badge = document.querySelector<HTMLButtonElement>('.badge');
+
+  if (badge) {
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+    let idleTimer = 0;
+    let base: { beta: number; gamma: number } | null = null;
+    let gyroOn = false;
+
+    const setTilt = (rx: number, ry: number) => {
+      badge.classList.add('is-live');
+      badge.style.setProperty('--rx', `${rx.toFixed(2)}deg`);
+      badge.style.setProperty('--ry', `${ry.toFixed(2)}deg`);
+      badge.style.setProperty('--mx', (0.5 + ry / 28).toFixed(3));
+      badge.style.setProperty('--my', (0.5 - rx / 24).toFixed(3));
+    };
+
+    // Возврат к плавному покачиванию, когда карточку перестали двигать.
+    const scheduleIdle = () => {
+      window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(() => {
+        if (!gyroOn) badge.classList.remove('is-live');
+      }, 1800);
+    };
+
+    const onOrientation = (event: DeviceOrientationEvent) => {
+      if (event.beta === null || event.gamma === null) return;
+      gyroOn = true;
+      base ??= { beta: event.beta, gamma: event.gamma };
+      const ry = clamp((event.gamma - base.gamma) / 2, -14, 14);
+      const rx = clamp(-(event.beta - base.beta) / 2.5, -12, 12);
+      setTilt(rx, ry);
+    };
+
+    const startGyro = () => {
+      if (reduce) return;
+      window.addEventListener('deviceorientation', onOrientation, { passive: true });
+    };
+
+    type OrientationPermission = { requestPermission?: () => Promise<'granted' | 'denied'> };
+    const needsPermission =
+      typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof (DeviceOrientationEvent as unknown as OrientationPermission).requestPermission === 'function';
+
+    if (!needsPermission) startGyro();
+
+    if (!reduce) {
+      badge.addEventListener('pointermove', (event) => {
+        if (event.pointerType !== 'mouse') return;
+        const rect = badge.getBoundingClientRect();
+        const x = (event.clientX - rect.left) / rect.width - 0.5;
+        const y = (event.clientY - rect.top) / rect.height - 0.5;
+        setTilt(clamp(-y * 22, -12, 12), clamp(x * 26, -14, 14));
+        scheduleIdle();
+      });
+      badge.addEventListener('pointerleave', scheduleIdle);
+    }
+
+    let asked = false;
+    badge.addEventListener('click', () => {
+      const flipped = badge.getAttribute('aria-pressed') === 'true';
+      badge.setAttribute('aria-pressed', String(!flipped));
+
+      // На iPhone доступ к наклону даётся только после нажатия.
+      if (needsPermission && !asked) {
+        asked = true;
+        (DeviceOrientationEvent as unknown as OrientationPermission)
+          .requestPermission?.()
+          .then((state) => state === 'granted' && startGyro())
+          .catch(() => {});
+      }
+    });
+  }
+</script>

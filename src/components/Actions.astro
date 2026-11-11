@@ -1,0 +1,15 @@
+---
+import { copy, profile, asset, type Lang } from '../data/profile';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = copy[lang];
+---
+
+<div class="actions">
+  <a class="btn btn--primary" href={profile.telegram.url} target="_blank" rel="noopener">{t.telegram}</a>
+  <a class="btn" href={asset(profile.vcf)} download>{t.save}</a>
+</div>
