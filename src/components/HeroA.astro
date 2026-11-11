@@ -5,6 +5,7 @@ import '@fontsource-variable/geist/wght.css';
 import '@fontsource-variable/geist-mono/wght.css';
 import Actions from './Actions.astro';
 import { copy, profile, type Lang } from '../data/profile';
+import { initialsSeed, shearPlan } from '../scripts/lanyard/initials';
 
 interface Props {
   lang: Lang;
@@ -25,6 +26,8 @@ const qr = await QRCode.toString(profile.site, {
 });
 
 const initials = `${t.first[0]}${t.last[0]}`.toUpperCase();
+// Большие инициалы со «сдвигом»: те же полосы, что рисует 3D-бейдж.
+const bigLetters = [...initials].map((letter, i) => ({ letter, strips: shearPlan(initialsSeed(initials), i) }));
 ---
 
 <section class="heroA">
@@ -49,7 +52,21 @@ const initials = `${t.first[0]}${t.last[0]}`.toUpperCase();
           <span class="badge__face badge__front">
             <span class="badge__mark" aria-hidden="true">{initials}</span>
             <span class="badge__big" aria-hidden="true">
-              {[...initials].map((letter) => <span>{letter}</span>)}
+              {
+                bigLetters.map(({ letter, strips }) => (
+                  <span class="badge__letter">
+                    <span class="badge__ghost">{letter}</span>
+                    {strips.map(({ from, to, dy }) => (
+                      <span
+                        class="badge__strip"
+                        style={`clip-path:inset(-20% ${((1 - to) * 100).toFixed(2)}% -20% ${(from * 100).toFixed(2)}%);translate:0 ${(dy * 0.72).toFixed(3)}em`}
+                      >
+                        {letter}
+                      </span>
+                    ))}
+                  </span>
+                ))
+              }
             </span>
             <span class="badge__name">
               <span>{t.first}</span>
@@ -245,9 +262,19 @@ const initials = `${t.first[0]}${t.last[0]}`.toUpperCase();
     letter-spacing: -0.04em;
   }
 
-  /* Тонкий «разлом» во второй букве, как в 3D-версии. */
-  .badge__big span:last-child {
-    clip-path: polygon(0 0, 100% 0, 100% 52%, 0 52%, 0 58%, 100% 58%, 100% 100%, 0 100%);
+  /* «Сдвиг»: буква собрана из вертикальных полос, часть полос съехала вверх-вниз. */
+  .badge__letter {
+    position: relative;
+    display: block;
+  }
+
+  .badge__ghost {
+    visibility: hidden;
+  }
+
+  .badge__strip {
+    position: absolute;
+    inset: 0;
   }
 
   .badge__name {

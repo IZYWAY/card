@@ -9,7 +9,7 @@ import geistLatin from '@fontsource-variable/geist/files/geist-latin-wght-normal
 import geistCyrillic from '@fontsource-variable/geist/files/geist-cyrillic-wght-normal.woff2?url';
 import monoLatin from '@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2?url';
 import monoCyrillic from '@fontsource-variable/geist-mono/files/geist-mono-cyrillic-wght-normal.woff2?url';
-import { drawInitials, type InitialsStyle } from './initials';
+import { drawInitials, initialsSeed, type InitialsStyle } from './initials';
 
 export interface BadgeContent {
   role: string;
@@ -119,7 +119,7 @@ function wordmark(
 }
 
 /** Стиль «дефектов» у больших инициалов. Варианты — в initials.ts. */
-export const FRONT_STYLE: InitialsStyle = 'slices';
+export const FRONT_STYLE: InitialsStyle = 'shear';
 
 export function drawFront(c: BadgeContent, style: InitialsStyle = FRONT_STYLE) {
   const { w, h } = CARD_PX;
@@ -138,7 +138,7 @@ export function drawFront(c: BadgeContent, style: InitialsStyle = FRONT_STYLE) {
   ctx.fillText(initials, pad, pad);
 
   // Огромные инициалы столбиком справа.
-  drawInitials(ctx, initials, { x: w * 0.34, y: h * 0.07, w: w * 0.6, h: h * 0.56 }, style, SANS, 0x5eed + initials.charCodeAt(0));
+  drawInitials(ctx, initials, { x: w * 0.34, y: h * 0.07, w: w * 0.6, h: h * 0.56 }, style, SANS, initialsSeed(initials));
   if (style === 'slices') {
     // Отколовшийся кусочек внизу, как у оригинала.
     ctx.fillStyle = '#fff';

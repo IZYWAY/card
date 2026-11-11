@@ -115,6 +115,29 @@ function band(ctx: CanvasRenderingContext2D, g: Glyph, a: number, b: number, dx 
   if (hh > 0.5) ctx.drawImage(g.el, 0, y0, g.el.width, hh, g.x + dx, g.y + y0 + dy, g.el.width, hh);
 }
 
+/**
+ * Раскладка «Сдвига» для одной буквы: вертикальные полосы (доли ширины буквы)
+ * и их сдвиг по высоте (доли высоты буквы). Общая для 3D-бейджа и HTML-карточки,
+ * чтобы обе версии выглядели одинаково.
+ */
+export function shearPlan(seed: number, index: number) {
+  const rand = rng(seed + index * 101);
+  const strips: Array<{ from: number; to: number; dy: number }> = [];
+  let from = 0;
+  while (from < 1) {
+    const to = Math.min(1, from + 0.06 + rand() * 0.12);
+    const r = rand();
+    // Сдвинута примерно каждая третья полоса и несильно — буква должна читаться.
+    const dy = r < 0.66 ? 0 : (rand() < 0.5 ? -1 : 1) * (0.04 + rand() * 0.07);
+    strips.push({ from, to, dy });
+    from = to;
+  }
+  return strips;
+}
+
+/** Зерно рисунка: от первой буквы инициалов, чтобы ДЕ и DE выглядели по-своему, но всегда одинаково. */
+export const initialsSeed = (initials: string) => 0x5eed + initials.charCodeAt(0);
+
 export function drawInitials(
   ctx: CanvasRenderingContext2D,
   letters: string,
@@ -241,19 +264,15 @@ export function drawInitials(
       break;
     }
 
-    /** Сдвиг: буквы нарезаны вертикальными полосами, полосы съехали вверх-вниз. */
+    /** Сдвиг: буквы нарезаны вертикальными полосами, часть полос съехала вверх-вниз. */
     case 'shear': {
-      for (const g of glyphs) {
-        let x = g.left;
-        while (x < g.left + g.gw) {
-          const w = g.gw * (0.06 + rand() * 0.12);
-          const r = rand();
-          // Сдвинута примерно каждая третья полоса и несильно — буква должна читаться.
-          const dy = r < 0.66 ? 0 : (rand() < 0.5 ? -1 : 1) * g.gh * (0.04 + rand() * 0.07);
-          ctx.drawImage(g.el, x, 0, w, g.el.height, g.x + x, g.y + dy, w, g.el.height);
-          x += w;
+      glyphs.forEach((g, i) => {
+        for (const { from, to, dy } of shearPlan(seed, i)) {
+          const x = g.left + g.gw * from;
+          const w = g.gw * (to - from);
+          ctx.drawImage(g.el, x, 0, w, g.el.height, g.x + x, g.y + dy * g.gh, w, g.el.height);
         }
-      }
+      });
       break;
     }
 

@@ -121,15 +121,14 @@ export async function mountLanyard(o: LanyardOptions) {
     roughness: 0.3,
     metalness: 0.5,
   });
-  // Оборот белый и полуматовый: блики не должны мешать камере читать QR.
-  const backMat = new THREE.MeshPhysicalMaterial({
+  // Оборот белый и матовый, как бумага: блики высветляют чёрные клетки QR, и камера его не читает.
+  const backMat = new THREE.MeshStandardMaterial({
     map: texture(drawBack(o.content)),
-    clearcoat: 0.5,
-    clearcoatRoughness: 0.35,
-    roughness: 0.55,
+    roughness: 0.9,
     metalness: 0,
+    envMapIntensity: 0.25,
     emissive: 0xffffff,
-    emissiveIntensity: 0.18,
+    emissiveIntensity: 0.3,
   });
   backMat.emissiveMap = backMat.map;
 
