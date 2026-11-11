@@ -9,6 +9,7 @@ import geistLatin from '@fontsource-variable/geist/files/geist-latin-wght-normal
 import geistCyrillic from '@fontsource-variable/geist/files/geist-cyrillic-wght-normal.woff2?url';
 import monoLatin from '@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2?url';
 import monoCyrillic from '@fontsource-variable/geist-mono/files/geist-mono-cyrillic-wght-normal.woff2?url';
+import { drawInitials, type InitialsStyle } from './initials';
 
 export interface BadgeContent {
   role: string;
@@ -68,17 +69,6 @@ function spacing(ctx: CanvasRenderingContext2D, px: number) {
   (ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing = `${px.toFixed(1)}px`;
 }
 
-/** Детерминированный «случайный» генератор: рисунок одинаковый при каждой загрузке. */
-function rng(seed: number) {
-  let s = seed >>> 0 || 1;
-  return () => {
-    s ^= s << 13;
-    s ^= s >>> 17;
-    s ^= s << 5;
-    return ((s >>> 0) % 100000) / 100000;
-  };
-}
-
 /**
  * Подпись-знак: инициалы и короткая метка в скруглённой рамке (как «Vercel Ship [24]»).
  * Возвращает ширину знака.
@@ -128,100 +118,10 @@ function wordmark(
   return total;
 }
 
-/**
- * Огромные инициалы с «разломом», как слово SHIP на бейдже Vercel:
- * первая буква растворяется в облаке точек, у второй сдвинуты пара полос и отколот кусочек.
- * Разлом заданный, а не случайный: буквы должны узнаваться.
- */
-function brokenLetters(
-  ctx: CanvasRenderingContext2D,
-  letters: string,
-  box: { x: number; y: number; w: number; h: number },
-  seed: number,
-) {
-  const rand = rng(seed);
-  const n = Math.max(1, letters.length);
-  const slotH = box.h / n;
-  // Полосы: [от, до] по высоте буквы (0 — верх, 1 — низ) и сдвиг влево в долях ширины ячейки.
-  const cuts: Array<Array<[number, number, number]>> = [
-    [[0.64, 0.7, -1]], // у первой буквы тонкая щель
-    [
-      [0.16, 0.3, 0.09],
-      [0.52, 0.58, -1],
-      [0.58, 0.7, 0.05],
-    ],
-  ];
+/** Стиль «дефектов» у больших инициалов. Варианты — в initials.ts. */
+export const FRONT_STYLE: InitialsStyle = 'slices';
 
-  for (let i = 0; i < n; i++) {
-    const { el: tmp, ctx: t } = canvas(Math.ceil(box.w), Math.ceil(slotH));
-    // Подбираем кегль по настоящим границам буквы (у «Д» есть ножки ниже строки).
-    t.font = `640 100px ${SANS}`;
-    const probe = t.measureText(letters[i]);
-    const gh = probe.actualBoundingBoxAscent + probe.actualBoundingBoxDescent;
-    const gw = probe.actualBoundingBoxLeft + probe.actualBoundingBoxRight;
-    const size = Math.min((slotH * 0.9) / gh, (box.w * 0.96) / gw) * 100;
-    t.font = `640 ${size}px ${SANS}`;
-    const m = t.measureText(letters[i]);
-    const glyphW = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
-    const glyphH = m.actualBoundingBoxAscent + m.actualBoundingBoxDescent;
-    const gx = tmp.width - glyphW - box.w * 0.02 + m.actualBoundingBoxLeft;
-    const gy = (slotH - glyphH) / 2 + m.actualBoundingBoxAscent;
-    t.fillStyle = '#fff';
-    t.textBaseline = 'alphabetic';
-    t.textAlign = 'left';
-    t.fillText(letters[i], gx, gy);
-    const left = gx - m.actualBoundingBoxLeft;
-    const topY = gy - m.actualBoundingBoxAscent;
-
-    let cloud: { x: number; y: number; r: number } | null = null;
-    if (i === 0) {
-      cloud = { x: left + glyphW * 0.88, y: topY + glyphH * 0.34, r: box.w * 0.13 };
-      t.globalCompositeOperation = 'destination-out';
-      const g = t.createRadialGradient(cloud.x, cloud.y, 0, cloud.x, cloud.y, cloud.r);
-      g.addColorStop(0, 'rgba(0,0,0,1)');
-      g.addColorStop(0.7, 'rgba(0,0,0,1)');
-      g.addColorStop(1, 'rgba(0,0,0,0)');
-      t.fillStyle = g;
-      t.fillRect(0, 0, tmp.width, tmp.height);
-      t.globalCompositeOperation = 'source-over';
-    }
-
-    // Собираем букву полосами: целые куски, сдвинутые куски и пропуски.
-    const slot = box.y + i * slotH;
-    const plan = cuts[i] ?? [];
-    let from = 0;
-    const draw = (a: number, b: number, dx: number) => {
-      const y0 = topY + glyphH * a;
-      const hh = glyphH * (b - a);
-      if (hh > 0.5) ctx.drawImage(tmp, 0, y0, tmp.width, hh, box.x - dx * box.w, slot + y0, tmp.width, hh);
-    };
-    for (const [a, b, dx] of plan) {
-      draw(from, a, 0);
-      if (dx >= 0) draw(a, b, dx);
-      from = b;
-    }
-    draw(from, 1, 0);
-    // Всё, что выше и ниже глифа (ничего), не рисуем.
-
-    if (cloud) {
-      // Облако точек: гуще в центре, реже к краям, клетки ровные — как растр.
-      const cell = Math.max(3, Math.round(box.w * 0.009));
-      ctx.fillStyle = '#fff';
-      const cx = box.x + cloud.x;
-      const cy = slot + cloud.y;
-      for (let k = 0; k < 2200; k++) {
-        const a = rand() * Math.PI * 2;
-        const d = Math.pow(rand(), 0.6) * cloud.r * 1.05;
-        const px = Math.round((cx + Math.cos(a) * d) / cell) * cell;
-        const py = Math.round((cy + Math.sin(a) * d * 0.85) / cell) * cell;
-        const p = 1 - d / (cloud.r * 1.05);
-        if (rand() < p * 0.85) ctx.fillRect(px, py, cell * 0.62, cell * 0.62);
-      }
-    }
-  }
-}
-
-export function drawFront(c: BadgeContent) {
+export function drawFront(c: BadgeContent, style: InitialsStyle = FRONT_STYLE) {
   const { w, h } = CARD_PX;
   const { el, ctx } = canvas(w, h);
   const pad = w * 0.0625;
@@ -238,10 +138,12 @@ export function drawFront(c: BadgeContent) {
   ctx.fillText(initials, pad, pad);
 
   // Огромные инициалы столбиком справа.
-  brokenLetters(ctx, initials, { x: w * 0.34, y: h * 0.07, w: w * 0.6, h: h * 0.56 }, 0x5eed + initials.charCodeAt(0));
-  // Отколовшийся кусочек внизу, как у оригинала.
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(w * 0.62, h * 0.905, w * 0.085, h * 0.018);
+  drawInitials(ctx, initials, { x: w * 0.34, y: h * 0.07, w: w * 0.6, h: h * 0.56 }, style, SANS, 0x5eed + initials.charCodeAt(0));
+  if (style === 'slices') {
+    // Отколовшийся кусочек внизу, как у оригинала.
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(w * 0.62, h * 0.905, w * 0.085, h * 0.018);
+  }
 
   // Имя и роль внизу слева.
   const nameSize = w * 0.074;
