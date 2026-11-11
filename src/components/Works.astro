@@ -1,4 +1,5 @@
 ---
+import Glitch from './Glitch.astro';
 import { copy, type Lang } from '../data/profile';
 
 interface Props {
@@ -11,12 +12,14 @@ const { meet, chat, desk } = t.works;
 ---
 
 <section class="section works" id="works">
-  <h2 class="section__title reveal">{t.worksTitle}</h2>
+  <h2 class="section__title reveal" aria-label={t.worksTitle}>
+    <Glitch text={t.worksTitle} /><span class="tagbox" aria-hidden="true">3</span>
+  </h2>
   <p class="works__lead reveal">{t.worksLead}</p>
 
   <div class="works__row">
     <!-- Мини-приложение для знакомств -->
-    <article class="work reveal" style="--tone: var(--foil-1)">
+    <article class="work reveal">
       <div class="phone" aria-hidden="true">
         <div class="phone__screen">
           <div class="phone__bar mono">{meet.bar}</div>
@@ -42,7 +45,7 @@ const { meet, chat, desk } = t.works;
     </article>
 
     <!-- ИИ-ассистент -->
-    <article class="work reveal" style="--tone: var(--foil-2)">
+    <article class="work reveal">
       <div class="phone" aria-hidden="true">
         <div class="phone__screen">
           <div class="phone__bar mono">{chat.bar}</div>
@@ -58,7 +61,7 @@ const { meet, chat, desk } = t.works;
     </article>
 
     <!-- Рабочая панель -->
-    <article class="work reveal" style="--tone: var(--foil-3)">
+    <article class="work reveal">
       <div class="phone" aria-hidden="true">
         <div class="phone__screen">
           <div class="phone__bar mono">{desk.bar}</div>
@@ -118,8 +121,8 @@ const { meet, chat, desk } = t.works;
     aspect-ratio: 2 / 3;
     padding: 9px;
     border-radius: 34px;
-    background: var(--card);
-    box-shadow: 0 18px 30px rgba(20, 19, 43, 0.18);
+    background: var(--ink);
+    box-shadow: 0 18px 30px rgba(0, 0, 0, 0.16);
   }
 
   .phone__screen {
@@ -129,7 +132,7 @@ const { meet, chat, desk } = t.works;
     height: 100%;
     padding: 16px 12px 14px;
     border-radius: 26px;
-    background: #f7f8fa;
+    background: #f4f4f4;
     color: var(--ink);
     font-size: 13px;
     line-height: 1.3;
@@ -138,7 +141,7 @@ const { meet, chat, desk } = t.works;
 
   .phone__bar {
     padding: 0 2px 10px;
-    border-bottom: 1px solid #dfe2e8;
+    border-bottom: 1px solid #dcdcdc;
     font-size: 9px;
     color: var(--ink-soft);
   }
@@ -146,8 +149,8 @@ const { meet, chat, desk } = t.works;
   .phone__cta {
     margin-top: auto;
     padding: 12px;
-    border-radius: 12px;
-    background: var(--card);
+    border-radius: 10px;
+    background: var(--ink);
     color: #fff;
     font-weight: 600;
     text-align: center;
@@ -169,7 +172,7 @@ const { meet, chat, desk } = t.works;
     padding: 10px;
     border-radius: 14px;
     background: #fff;
-    border: 1px solid #e3e6eb;
+    border: 1px solid #dcdcdc;
   }
 
   .people__dot {
@@ -177,7 +180,15 @@ const { meet, chat, desk } = t.works;
     width: 30px;
     height: 30px;
     border-radius: 50%;
-    background: var(--tone);
+    background: var(--ink);
+  }
+
+  .people__item:nth-child(2) .people__dot {
+    background: #8c8c8c;
+  }
+
+  .people__item:nth-child(3) .people__dot {
+    background: #d0d0d0;
   }
 
   .people__text {
@@ -206,14 +217,15 @@ const { meet, chat, desk } = t.works;
 
   .chat__msg--them {
     align-self: flex-end;
-    background: var(--card);
+    background: var(--ink);
     color: #fff;
     border-bottom-right-radius: 4px;
   }
 
   .chat__msg--ai {
     align-self: flex-start;
-    background: var(--tone);
+    background: #fff;
+    border: 1px solid #dcdcdc;
     border-bottom-left-radius: 4px;
   }
 
@@ -222,8 +234,8 @@ const { meet, chat, desk } = t.works;
     padding: 11px 14px;
     border-radius: 99px;
     background: #fff;
-    border: 1px solid #e3e6eb;
-    color: #9a9cab;
+    border: 1px solid #dcdcdc;
+    color: #8c8c8c;
   }
 
   /* Панель */
@@ -243,7 +255,7 @@ const { meet, chat, desk } = t.works;
     padding: 9px 10px;
     border-radius: 12px;
     background: #fff;
-    border: 1px solid #e3e6eb;
+    border: 1px solid #dcdcdc;
   }
 
   .chip {
@@ -252,16 +264,17 @@ const { meet, chat, desk } = t.works;
     border-radius: 99px;
     font-size: 11px;
     font-weight: 600;
-    background: #e9ebef;
+    background: #e6e6e6;
   }
 
   .chip--new {
-    background: var(--tone);
+    background: var(--ink);
+    color: #fff;
   }
 
   .chip--work {
-    background: var(--card);
-    color: #fff;
+    background: #fff;
+    box-shadow: inset 0 0 0 1px var(--ink);
   }
 
   .chart {
@@ -273,12 +286,12 @@ const { meet, chat, desk } = t.works;
     margin-top: 4px;
     padding: 10px;
     border-radius: 14px;
-    background: var(--card);
+    background: var(--ink);
   }
 
   .chart__label {
     font-size: 9px;
-    color: #b9b7e6;
+    color: #b3b3b3;
   }
 
   .chart__bars {
@@ -291,8 +304,8 @@ const { meet, chat, desk } = t.works;
 
   .chart__bars span {
     flex: 1;
-    border-radius: 4px 4px 0 0;
-    background: var(--tone);
+    border-radius: 2px 2px 0 0;
+    background: #fff;
   }
 
   .work__tag {
@@ -308,8 +321,9 @@ const { meet, chat, desk } = t.works;
     margin: 10px 0 6px;
     font-family: var(--display);
     font-weight: 600;
-    font-size: 18px;
+    font-size: 20px;
     line-height: 1.2;
+    letter-spacing: -0.02em;
     text-wrap: balance;
   }
 

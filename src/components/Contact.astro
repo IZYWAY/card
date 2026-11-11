@@ -1,4 +1,5 @@
 ---
+import Glitch from './Glitch.astro';
 import { copy, profile, asset, type Lang } from '../data/profile';
 
 interface Props {
@@ -11,8 +12,8 @@ const t = copy[lang];
 
 <section class="contact" id="contact">
   <div class="contact__inner">
-    <h2 class="contact__title reveal">
-      {t.contactTitle.map((word) => <span>{word}</span>)}
+    <h2 class="contact__title reveal" aria-label={t.contactTitle.join(' ')}>
+      {t.contactTitle.map((word) => <span><Glitch text={word} /></span>)}
     </h2>
     <p class="contact__lead reveal">{t.contactLead}</p>
 
@@ -33,9 +34,9 @@ const t = copy[lang];
 <style>
   .contact {
     margin-top: 72px;
-    background: var(--card);
-    color: #f3f2ff;
-    border-radius: 28px 28px 0 0;
+    background: var(--ink);
+    color: var(--on-ink);
+    border-radius: 24px 24px 0 0;
   }
 
   .contact__inner {
@@ -50,22 +51,18 @@ const t = copy[lang];
     flex-direction: column;
     margin: 0;
     font-family: var(--display);
-    font-weight: 800;
-    font-size: clamp(34px, 11.6vw, 120px);
-    line-height: 1.14;
-    letter-spacing: -0.02em;
+    font-weight: 640;
+    font-size: clamp(40px, 13.5vw, 132px);
+    line-height: 1.02;
+    letter-spacing: -0.03em;
     text-transform: uppercase;
-    color: transparent;
-    background: linear-gradient(115deg, var(--foil-1), var(--foil-2) 45%, var(--foil-3) 90%);
-    -webkit-background-clip: text;
-    background-clip: text;
   }
 
   .contact__lead {
     margin: 20px 0 28px;
     max-width: 30ch;
     font-size: clamp(17px, 4.6vw, 20px);
-    color: #d9d8f4;
+    color: var(--on-ink-soft);
   }
 
   .contact__links {
@@ -78,23 +75,35 @@ const t = copy[lang];
     flex: none;
   }
 
+  /* На чёрном кнопки инвертированы: главная белая, остальные с белой рамкой. */
+  .contact .btn--primary {
+    background: var(--on-ink);
+    border-color: var(--on-ink);
+    color: var(--ink);
+  }
+
   .btn--light {
-    border-color: rgba(255, 255, 255, 0.55);
-    color: #fff;
+    border-color: rgba(255, 255, 255, 0.6);
+    color: var(--on-ink);
   }
 
   @media (hover: hover) {
+    .contact .btn--primary:hover {
+      background: var(--ink);
+      color: var(--on-ink);
+    }
+
     .btn--light:hover {
-      background: #fff;
-      border-color: #fff;
-      color: var(--card);
+      background: var(--on-ink);
+      border-color: var(--on-ink);
+      color: var(--ink);
     }
   }
 
   .contact__foot {
     margin: 56px 0 0;
     font-size: 10px;
-    color: #8f8dbd;
+    color: #8c8c8c;
     text-transform: none;
     letter-spacing: 0.03em;
   }

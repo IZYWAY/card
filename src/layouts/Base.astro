@@ -1,7 +1,11 @@
 ---
-import '@fontsource-variable/unbounded/wght.css';
-import '@fontsource-variable/onest/wght.css';
-import '@fontsource-variable/martian-mono/wght.css';
+// Весь сайт набран тем же шрифтом, что и бейдж: Geist и Geist Mono (лицензия OFL).
+import '@fontsource-variable/geist/wght.css';
+import '@fontsource-variable/geist-mono/wght.css';
+// Основной шрифт подгружается заранее: иначе текст сначала рисуется запасным шрифтом,
+// а потом перескакивает на Geist и сдвигает кнопки.
+import geistLatin from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url';
+import geistCyrillic from '@fontsource-variable/geist/files/geist-cyrillic-wght-normal.woff2?url';
 import { copy, href, asset, type Lang } from '../data/profile';
 
 interface Props {
@@ -14,6 +18,7 @@ interface Props {
 const { lang, path = '', title } = Astro.props;
 const t = copy[lang];
 const fullName = `${t.first} ${t.last}`;
+const preloadFonts = lang === 'ru' ? [geistCyrillic, geistLatin] : [geistLatin];
 const pageTitle = title ? `${title} · ${fullName}` : `${fullName} · ${t.role}`;
 ---
 
@@ -22,20 +27,21 @@ const pageTitle = title ? `${title} · ${fullName}` : `${fullName} · ${t.role}`
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#E9EBEF" />
+    <meta name="theme-color" content="#EDEDED" />
     <title>{pageTitle}</title>
     <meta name="description" content={t.description} />
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={t.description} />
     <meta property="og:type" content="profile" />
     <link rel="icon" type="image/svg+xml" href={asset('favicon.svg')} />
+    {preloadFonts.map((font) => <link rel="preload" as="font" type="font/woff2" href={font} crossorigin />)}
     <link rel="alternate" hreflang="en" href={href('en', path)} />
     <link rel="alternate" hreflang="ru" href={href('ru', path)} />
   </head>
   <body>
     <header class="top">
-      <a class="top__mark mono" href={href(lang)} aria-label={fullName}>
-        {t.first[0]}{t.last[0]}
+      <a class="top__mark wordmark" href={href(lang)} aria-label={fullName}>
+        {t.first[0]}{t.last[0]}<span>{t.badgeTag}</span>
       </a>
       <nav class="top__lang mono" aria-label="Language">
         <a href={href('en', path)} aria-current={lang === 'en' ? 'true' : undefined} lang="en">EN</a>
@@ -66,19 +72,21 @@ const pageTitle = title ? `${title} · ${fullName}` : `${fullName} · ${t.role}`
 </html>
 
 <style is:global>
+  /* Стиль сайта повторяет бейдж: чёрное и белое, без цветных акцентов,
+     шрифт Geist, подписи моноширинным Geist Mono, знак с меткой в рамке. */
   :root {
-    --bg: #e9ebef;
-    --ink: #0e0e1a;
-    --ink-soft: #55566a;
-    --card: #14132b;
-    --foil-1: #6fe3ff;
-    --foil-2: #ff7ad9;
-    --foil-3: #ffe27a;
-    --accent: #5b3df5;
-    --display: 'Unbounded Variable', 'Arial Black', sans-serif;
-    --text: 'Onest Variable', system-ui, sans-serif;
-    --monoface: 'Martian Mono Variable', ui-monospace, monospace;
+    --bg: #ededed;
+    --paper: #ffffff;
+    --ink: #000000;
+    --ink-soft: #595959;
+    --line: rgba(0, 0, 0, 0.14);
+    --on-ink: #ffffff;
+    --on-ink-soft: #b3b3b3;
+    --display: 'Geist Variable', 'Helvetica Neue', Arial, sans-serif;
+    --text: 'Geist Variable', 'Helvetica Neue', Arial, sans-serif;
+    --monoface: 'Geist Mono Variable', ui-monospace, monospace;
     --gutter: 20px;
+    --radius: 12px;
   }
 
   *,
@@ -116,7 +124,7 @@ const pageTitle = title ? `${title} · ${fullName}` : `${fullName} · ${t.role}`
   }
 
   :focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--ink);
     outline-offset: 3px;
     border-radius: 4px;
   }
@@ -127,6 +135,32 @@ const pageTitle = title ? `${title} · ${fullName}` : `${fullName} · ${t.role}`
     font-weight: 500;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+  }
+
+  /* Знак, как на бейдже: инициалы и короткая метка в рамке. */
+  .wordmark {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28em;
+    font-weight: 600;
+    font-size: 17px;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+
+  .wordmark span,
+  .tagbox {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.72em;
+    height: 1.72em;
+    padding: 0 0.32em;
+    border: 0.13em solid currentColor;
+    border-radius: 0.4em;
+    font-weight: 600;
+    font-size: 0.5em;
+    line-height: 1;
+    letter-spacing: 0;
   }
 
   .top {
@@ -164,8 +198,10 @@ const pageTitle = title ? `${title} · ${fullName}` : `${fullName} · ${t.role}`
   .lead {
     margin: 0;
     max-width: 30ch;
+    font-weight: 500;
     font-size: clamp(17px, 4.6vw, 20px);
     line-height: 1.35;
+    letter-spacing: -0.01em;
     text-wrap: balance;
   }
 
@@ -185,15 +221,17 @@ const pageTitle = title ? `${title} · ${fullName}` : `${fullName} · ${t.role}`
     justify-content: center;
     min-height: 52px;
     padding: 0 18px;
-    border-radius: 14px;
+    border-radius: var(--radius);
     border: 1.5px solid var(--ink);
     font-weight: 600;
     font-size: 16px;
+    letter-spacing: -0.01em;
     text-decoration: none;
     white-space: nowrap;
     transition:
       transform 0.15s ease,
-      background-color 0.15s ease;
+      background-color 0.15s ease,
+      color 0.15s ease;
   }
 
   .btn:active {
@@ -201,20 +239,18 @@ const pageTitle = title ? `${title} · ${fullName}` : `${fullName} · ${t.role}`
   }
 
   .btn--primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
+    background: var(--ink);
+    color: var(--on-ink);
   }
 
   @media (hover: hover) {
     .btn:hover {
       background: var(--ink);
-      color: var(--bg);
+      color: var(--on-ink);
     }
     .btn--primary:hover {
-      background: #4429d8;
-      border-color: #4429d8;
-      color: #fff;
+      background: var(--bg);
+      color: var(--ink);
     }
   }
 
@@ -225,14 +261,25 @@ const pageTitle = title ? `${title} · ${fullName}` : `${fullName} · ${t.role}`
     padding: 72px var(--gutter) 0;
   }
 
+  /* Заголовок раздела: слово со «сдвигом» и число в рамке, как метка у знака. */
   .section__title {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.16em;
     margin: 0 0 28px;
     font-family: var(--display);
-    font-weight: 800;
-    font-size: clamp(30px, 9.5vw, 72px);
+    font-weight: 640;
+    font-size: clamp(34px, 10.5vw, 76px);
     line-height: 1.02;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.03em;
     text-transform: uppercase;
+  }
+
+  .section__title .tagbox {
+    flex: none;
+    margin-top: 0.3em;
+    font-size: 0.26em;
+    border-width: 0.11em;
   }
 
   /* Появление при прокрутке. Без скриптов всё видно сразу. */

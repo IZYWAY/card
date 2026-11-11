@@ -120,15 +120,25 @@ function band(ctx: CanvasRenderingContext2D, g: Glyph, a: number, b: number, dx 
  * и их сдвиг по высоте (доли высоты буквы). Общая для 3D-бейджа и HTML-карточки,
  * чтобы обе версии выглядели одинаково.
  */
-export function shearPlan(seed: number, index: number) {
+export interface ShearOptions {
+  /** Ширина полосы, доли ширины буквы: от и до. */
+  width?: [number, number];
+  /** Доля полос, которые съезжают. */
+  chance?: number;
+  /** Величина сдвига, доли высоты буквы: от и до. */
+  shift?: [number, number];
+}
+
+export function shearPlan(seed: number, index: number, options: ShearOptions = {}) {
+  const { width = [0.06, 0.18], chance = 0.34, shift = [0.04, 0.11] } = options;
   const rand = rng(seed + index * 101);
   const strips: Array<{ from: number; to: number; dy: number }> = [];
   let from = 0;
   while (from < 1) {
-    const to = Math.min(1, from + 0.06 + rand() * 0.12);
+    const to = Math.min(1, from + width[0] + rand() * (width[1] - width[0]));
     const r = rand();
     // Сдвинута примерно каждая третья полоса и несильно — буква должна читаться.
-    const dy = r < 0.66 ? 0 : (rand() < 0.5 ? -1 : 1) * (0.04 + rand() * 0.07);
+    const dy = r < 1 - chance ? 0 : (rand() < 0.5 ? -1 : 1) * (shift[0] + rand() * (shift[1] - shift[0]));
     strips.push({ from, to, dy });
     from = to;
   }
