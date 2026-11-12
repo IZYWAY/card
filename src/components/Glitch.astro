@@ -1,0 +1,62 @@
+---
+/**
+ * Текст со «сдвигом», как большие инициалы на бейдже: каждая буква нарезана
+ * вертикальными полосами, часть полос съехала вверх-вниз.
+ * Для заголовков сдвиг мягче, чем на бейдже, чтобы слова читались с первого взгляда.
+ * Экранный диктор читает обычный текст: его задаёт aria-label у заголовка.
+ */
+import { shearPlan } from '../scripts/lanyard/initials';
+
+interface Props {
+  text: string;
+}
+
+const { text } = Astro.props;
+const seed = [...text].reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
+
+let index = 0;
+const words = text.split(/\s+/).map((word) =>
+  [...word].map((letter) => {
+    // Полосы крупные, сдвиг заметный: должно читаться как приём с бейджа, а не как сбой отрисовки.
+    const plan = shearPlan(seed, index++, { width: [0.3, 0.62], chance: 0.42, shift: [0.07, 0.13] });
+    // Соседние полосы с одинаковым сдвигом сливаются в одну: меньше разметки и нет волосяных щелей.
+    const strips: typeof plan = [];
+    for (const strip of plan) {
+      const last = strips[strips.length - 1];
+      // Узкий остаток у края буквы присоединяется к соседней полосе:
+      // отдельно он выглядит как случайная волосяная линия.
+      const sliver = strip.to - strip.from < 0.24;
+      if (last && (last.dy === strip.dy || sliver)) last.to = strip.to;
+      else strips.push({ ...strip });
+    }
+    // Знаки препинания и узкие буквы не режем: от них остаются одни чёрточки.
+    const narrow = !/\p{L}|\p{N}/u.test(letter) || /[IiLl1]/.test(letter);
+    const whole = narrow || (strips.length === 1 && strips[0].dy === 0);
+    return { letter, strips: whole ? [] : strips };
+  }),
+);
+---
+
+<span class="glitch" aria-hidden="true">{words.map((word, w) => <>{w > 0 ? ' ' : ''}<span class="glitch__word">{word.map(({ letter, strips }) => <span class="glitch__l">{strips.length === 0 ? letter : <><span class="glitch__ghost">{letter}</span>{strips.map((s) => <span class="glitch__s" style={`clip-path:inset(-30% ${pct(1 - s.to)} -30% ${pct(s.from)});translate:0 ${(s.dy * 0.72).toFixed(3)}em`}>{letter}</span>)}</>}</span>)}</span></>)}</span>
+
+<style>
+  .glitch__word {
+    display: inline-block;
+    white-space: nowrap;
+  }
+
+  .glitch__l {
+    position: relative;
+    display: inline-block;
+  }
+
+  .glitch__ghost {
+    visibility: hidden;
+  }
+
+  .glitch__s {
+    position: absolute;
+    inset: 0;
+  }
+</style>

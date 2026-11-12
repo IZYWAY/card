@@ -1,0 +1,244 @@
+/**
+ * Рисунок бейджа в духе бейджа Vercel Ship '24: чёрное лицо с огромными «рассыпанными»
+ * буквами, белый оборот с QR, чёрная лента с белой подписью. Вместо логотипа и слова SHIP —
+ * инициалы владельца. Всё рисуется в коде; файлов Vercel здесь нет.
+ *
+ * Шрифт — Geist (OFL), он грузится только вместе с 3D-бейджем.
+ */
+import geistLatin from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url';
+import geistCyrillic from '@fontsource-variable/geist/files/geist-cyrillic-wght-normal.woff2?url';
+import monoLatin from '@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2?url';
+import monoCyrillic from '@fontsource-variable/geist-mono/files/geist-mono-cyrillic-wght-normal.woff2?url';
+import { drawInitials, initialsSeed, type InitialsStyle } from './initials';
+
+export interface BadgeContent {
+  role: string;
+  first: string;
+  last: string;
+  handle: string;
+  site: string;
+  /** Модули QR-кода строкой из 0 и 1, построчно. */
+  qr: string;
+  qrSize: number;
+  /** Короткая метка в рамке рядом с инициалами: «AI» / «ИИ». */
+  tag: string;
+  /** Заголовок над QR-кодом. */
+  qrTitle: string;
+}
+
+const SANS = '"Badge Geist", "Helvetica Neue", Arial, sans-serif';
+const MONO = '"Badge Geist Mono", ui-monospace, monospace';
+const LATIN = 'U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD';
+const CYRILLIC = 'U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116';
+
+/** Ширина и высота холста карточки. Пропорции как у бейджа: 1.6 × 2.25. */
+export const CARD_PX = { w: 1024, h: 1440 };
+
+export const initialsOf = (c: BadgeContent) => `${c.first[0] ?? ''}${c.last[0] ?? ''}`.toUpperCase();
+
+/** Подключает Geist и ждёт его, иначе холст нарисует текст запасным шрифтом. */
+export async function loadFonts() {
+  const faces = [
+    new FontFace('Badge Geist', `url(${geistLatin})`, { weight: '100 900', unicodeRange: LATIN }),
+    new FontFace('Badge Geist', `url(${geistCyrillic})`, { weight: '100 900', unicodeRange: CYRILLIC }),
+    new FontFace('Badge Geist Mono', `url(${monoLatin})`, { weight: '100 900', unicodeRange: LATIN }),
+    new FontFace('Badge Geist Mono', `url(${monoCyrillic})`, { weight: '100 900', unicodeRange: CYRILLIC }),
+  ];
+  await Promise.race([
+    Promise.all(
+      faces.map((f) =>
+        f.load().then(
+          (loaded) => document.fonts.add(loaded),
+          () => {},
+        ),
+      ),
+    ),
+    new Promise((r) => setTimeout(r, 3000)),
+  ]);
+}
+
+function canvas(w: number, h: number) {
+  const el = document.createElement('canvas');
+  el.width = w;
+  el.height = h;
+  return { el, ctx: el.getContext('2d')! };
+}
+
+function spacing(ctx: CanvasRenderingContext2D, px: number) {
+  // letterSpacing есть не во всех браузерах; без него текст просто чуть плотнее.
+  (ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing = `${px.toFixed(1)}px`;
+}
+
+/**
+ * Подпись-знак: инициалы и короткая метка в скруглённой рамке (как «Vercel Ship [24]»).
+ * Возвращает ширину знака.
+ */
+function wordmark(
+  ctx: CanvasRenderingContext2D,
+  c: BadgeContent,
+  x: number,
+  y: number,
+  size: number,
+  color: string,
+  align: 'left' | 'center' = 'left',
+) {
+  const text = initialsOf(c);
+  ctx.font = `600 ${size}px ${SANS}`;
+  spacing(ctx, -size * 0.03);
+  const tw = ctx.measureText(text).width;
+  const gap = size * 0.28;
+  const boxH = size * 0.86;
+  ctx.font = `600 ${size * 0.5}px ${SANS}`;
+  spacing(ctx, 0);
+  const tagW = ctx.measureText(c.tag).width;
+  const boxW = Math.max(boxH, tagW + size * 0.34);
+  const total = tw + gap + boxW;
+  const x0 = align === 'center' ? x - total / 2 : x;
+
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+  ctx.font = `600 ${size}px ${SANS}`;
+  spacing(ctx, -size * 0.03);
+  ctx.fillText(text, x0, y);
+  const bx = x0 + tw + gap;
+  const by = y - size * 0.74;
+  ctx.lineWidth = Math.max(2, size * 0.065);
+  ctx.beginPath();
+  ctx.roundRect(bx, by, boxW, boxH, size * 0.2);
+  ctx.stroke();
+  ctx.font = `600 ${size * 0.5}px ${SANS}`;
+  spacing(ctx, 0);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(c.tag, bx + boxW / 2, by + boxH / 2 + size * 0.02);
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  return total;
+}
+
+/** Стиль «дефектов» у больших инициалов. Варианты — в initials.ts. */
+export const FRONT_STYLE: InitialsStyle = 'shear';
+
+export function drawFront(c: BadgeContent, style: InitialsStyle = FRONT_STYLE) {
+  const { w, h } = CARD_PX;
+  const { el, ctx } = canvas(w, h);
+  const pad = w * 0.0625;
+  const initials = initialsOf(c);
+
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, w, h);
+
+  // Знак в левом верхнем углу (у Vercel тут логотип).
+  ctx.fillStyle = '#fff';
+  ctx.font = `700 ${w * 0.052}px ${SANS}`;
+  spacing(ctx, -w * 0.002);
+  ctx.textBaseline = 'top';
+  ctx.fillText(initials, pad, pad);
+
+  // Огромные инициалы столбиком справа.
+  drawInitials(ctx, initials, { x: w * 0.34, y: h * 0.07, w: w * 0.6, h: h * 0.56 }, style, SANS, initialsSeed(initials));
+  if (style === 'slices') {
+    // Отколовшийся кусочек внизу, как у оригинала.
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(w * 0.62, h * 0.905, w * 0.085, h * 0.018);
+  }
+
+  // Имя и роль внизу слева.
+  const nameSize = w * 0.074;
+  let y = h * 0.668;
+  ctx.font = `600 ${nameSize}px ${SANS}`;
+  spacing(ctx, -nameSize * 0.02);
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = '#fff';
+  const maxName = w * 0.62;
+  for (const word of [c.first, c.last]) {
+    let s = nameSize;
+    ctx.font = `600 ${s}px ${SANS}`;
+    const mw = ctx.measureText(word).width;
+    if (mw > maxName) {
+      s *= maxName / mw;
+      ctx.font = `600 ${s}px ${SANS}`;
+    }
+    ctx.fillText(word, pad, y);
+    y += nameSize * 1.06;
+  }
+  const mono = w * 0.027;
+  ctx.font = `500 ${mono}px ${MONO}`;
+  spacing(ctx, mono * 0.06);
+  ctx.fillStyle = '#d6d6d6';
+  ctx.fillText(c.role.toUpperCase(), pad, y + mono * 0.7);
+
+  // Подпись-знак внизу.
+  wordmark(ctx, c, pad, h * 0.952, w * 0.044, '#fff');
+  return el;
+}
+
+export function drawBack(c: BadgeContent) {
+  const { w, h } = CARD_PX;
+  const { el, ctx } = canvas(w, h);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, w, h);
+
+  const mono = w * 0.042;
+  ctx.font = `600 ${mono}px ${MONO}`;
+  spacing(ctx, mono * 0.1);
+  ctx.fillStyle = '#000';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(c.qrTitle.toUpperCase(), w / 2, h * 0.235);
+
+  // QR-код: каждая клетка — целое число пикселей, чтобы камера читала уверенно.
+  const n = c.qrSize;
+  const cell = Math.floor((w * 0.68) / n);
+  const size = cell * n;
+  const qx = Math.round((w - size) / 2);
+  const qy = Math.round(h * 0.27);
+  for (let r = 0; r < n; r++) {
+    for (let col = 0; col < n; col++) {
+      if (c.qr[r * n + col] === '1') ctx.fillRect(qx + col * cell, qy + r * cell, cell, cell);
+    }
+  }
+
+  ctx.font = `600 ${mono * 0.85}px ${MONO}`;
+  spacing(ctx, mono * 0.04);
+  ctx.fillStyle = '#111';
+  ctx.fillText(c.site, w / 2, qy + size + h * 0.055);
+  ctx.fillText(c.handle.toUpperCase(), w / 2, qy + size + h * 0.055 + mono * 1.7);
+  ctx.textAlign = 'left';
+
+  wordmark(ctx, c, w / 2, h * 0.952, w * 0.044, '#000', 'center');
+  return el;
+}
+
+/** Лента: чёрная, с белым знаком вдоль. Длинная сторона холста идёт вдоль ленты. */
+export const BAND_PX = { across: 200, along: 680 };
+
+export function drawBand(c: BadgeContent) {
+  const { across, along } = BAND_PX;
+  const { el, ctx } = canvas(across, along);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, across, along);
+  ctx.save();
+  ctx.translate(across / 2, 0);
+  ctx.rotate(Math.PI / 2);
+  // Знак в центре плитки; плитка повторяется вдоль ленты.
+  const size = across * 0.5;
+  wordmark(ctx, c, along / 2, size * 0.33, size, '#fff', 'center');
+  ctx.restore();
+  return el;
+}
+
+/** Мягкое пятно тени за бейджем. */
+export function drawShadow() {
+  const s = 256;
+  const { el, ctx } = canvas(s, s);
+  const g = ctx.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  g.addColorStop(0, 'rgba(10,10,20,0.55)');
+  g.addColorStop(0.55, 'rgba(10,10,20,0.2)');
+  g.addColorStop(1, 'rgba(10,10,20,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, s, s);
+  return el;
+}

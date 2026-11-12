@@ -2,6 +2,9 @@
 import QRCode from 'qrcode';
 import Actions from './Actions.astro';
 import { copy, profile, type Lang } from '../data/profile';
+import { initialsSeed, shearPlan } from '../scripts/lanyard/initials';
+// Адрес файла физики: его начинаем качать сразу, параллельно с кодом бейджа.
+import wasmUrl from '@dimforge/rapier3d/rapier_wasm3d_bg.wasm?url';
 
 interface Props {
   lang: Lang;
@@ -10,48 +13,115 @@ interface Props {
 const { lang } = Astro.props;
 const t = copy[lang];
 
+// Тот же QR в виде сетки 0/1 — по ней 3D-бейдж рисует оборот.
+const qrModules = QRCode.create(profile.site, { errorCorrectionLevel: 'M' }).modules;
+const qrBits = Array.from(qrModules.data, (v) => (v ? '1' : '0')).join('');
+
 const qr = await QRCode.toString(profile.site, {
   type: 'svg',
   margin: 0,
   errorCorrectionLevel: 'M',
-  color: { dark: '#14132B', light: '#0000' },
+  color: { dark: '#000000', light: '#0000' },
 });
+
+const initials = `${t.first[0]}${t.last[0]}`.toUpperCase();
+// Большие инициалы со «сдвигом»: те же полосы, что рисует 3D-бейдж.
+const bigLetters = [...initials].map((letter, i) => ({ letter, strips: shearPlan(initialsSeed(initials), i) }));
 ---
 
 <section class="heroA">
+  <!-- Сюда после загрузки страницы встаёт 3D-бейдж на ленте. До этого видна HTML-карточка ниже. -->
+  <!-- Решаем ещё до первой отрисовки, будет ли 3D-бейдж. Если будет, обычную карточку
+       не показываем вовсе: иначе при открытии мелькает карточка, а потом её сменяет бейдж. -->
+  <script is:inline define:vars={{ wasmUrl }}>
+    (function () {
+      try {
+        var forced = new URLSearchParams(location.search).has('3d');
+        var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var c = navigator.connection || {};
+        var thin = !!c.saveData || /(^|-)2g$/.test(c.effectiveType || '');
+        // Нужна видеокарта: при программной отрисовке 3D лагает.
+        var gl = document.createElement('canvas').getContext('webgl2');
+        var gpu = false;
+        if (gl) {
+          var info = gl.getExtension('WEBGL_debug_renderer_info');
+          var name = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : '';
+          gpu = !/swiftshader|llvmpipe|softpipe|software|basic render/i.test(name);
+        }
+        // ?3d в адресе включает бейдж принудительно (для проверки на любом устройстве).
+        if (!reduce && (forced || (gpu && !thin))) {
+          window.__badge3d = true;
+          document.documentElement.classList.add('badge-pending');
+          // Самый тяжёлый файл бейджа (физика) начинает грузиться уже сейчас.
+          var link = document.createElement('link');
+          link.rel = 'preload';
+          link.as = 'fetch';
+          link.type = 'application/wasm';
+          link.crossOrigin = 'anonymous';
+          link.href = wasmUrl;
+          document.head.appendChild(link);
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <div class="lanyard" data-lanyard></div>
   <div class="badgeWrap">
-    <button class="badge" type="button" aria-pressed="false" aria-label={t.flipToQr}>
+    <button
+      class="badge"
+      type="button"
+      aria-pressed="false"
+      aria-label={t.flipToQr}
+      data-qr={qrBits}
+      data-qr-size={qrModules.size}
+      data-site={profile.siteLabel}
+      data-tag={t.badgeTag}
+      data-qr-title={t.qrTitle}
+      data-handle={profile.telegram.handle}
+    >
       <span class="badge__tilt">
         <span class="badge__flip">
+          <!-- Рисунок в духе бейджа Vercel Ship '24: вместо логотипа и слова SHIP — инициалы. -->
           <span class="badge__face badge__front">
-            <span class="badge__rings" aria-hidden="true"></span>
-            <span class="badge__slot" aria-hidden="true"></span>
-            <span class="badge__role mono">{t.role}</span>
+            <span class="badge__mark" aria-hidden="true">{initials}</span>
+            <span class="badge__big" aria-hidden="true">
+              {
+                bigLetters.map(({ letter, strips }) => (
+                  <span class="badge__letter">
+                    <span class="badge__ghost">{letter}</span>
+                    {strips.map(({ from, to, dy }) => (
+                      <span
+                        class="badge__strip"
+                        style={`clip-path:inset(-20% ${((1 - to) * 100).toFixed(2)}% -20% ${(from * 100).toFixed(2)}%);translate:0 ${(dy * 0.72).toFixed(3)}em`}
+                      >
+                        {letter}
+                      </span>
+                    ))}
+                  </span>
+                ))
+              }
+            </span>
             <span class="badge__name">
               <span>{t.first}</span>
               <span>{t.last}</span>
             </span>
-            <span class="badge__makes mono">
-              {t.makes.map((item) => <span>{item}</span>)}
-            </span>
-            <span class="badge__foot mono">
-              <span>{profile.telegram.handle}</span>
-              <span class="badge__seal" aria-hidden="true">QR</span>
-            </span>
-            <span class="badge__sheen" aria-hidden="true"></span>
+            <span class="badge__role mono">{t.role}</span>
+            <span class="badge__wordmark" aria-hidden="true">{initials}<span>{t.badgeTag}</span></span>
           </span>
           <span class="badge__face badge__back">
-            <span class="badge__slot" aria-hidden="true"></span>
+            <span class="badge__qrtitle mono">{t.qrTitle}</span>
             <span class="badge__qr" set:html={qr} />
-            <span class="badge__site mono">{profile.siteLabel}</span>
-            <span class="badge__scan">{t.scan}</span>
+            <span class="badge__site mono">
+              <span>{profile.siteLabel}</span>
+              <span>{profile.telegram.handle}</span>
+            </span>
+            <span class="badge__wordmark" aria-hidden="true">{initials}<span>{t.badgeTag}</span></span>
           </span>
         </span>
       </span>
     </button>
   </div>
 
-  <p class="heroA__hint mono">{t.flipHint}</p>
+  <p class="heroA__hint mono" data-drag-hint={t.dragHint}>{t.flipHint}</p>
   <h1 class="lead">{t.line}</h1>
   <Actions lang={lang} />
 </section>
@@ -79,6 +149,7 @@ const qr = await QRCode.toString(profile.site, {
   }
 
   .heroA {
+    position: relative;
     min-height: calc(100svh - 56px);
     display: flex;
     flex-direction: column;
@@ -90,12 +161,95 @@ const qr = await QRCode.toString(profile.site, {
   }
 
   .badgeWrap {
+    /* Отступ сверху оставляет место для ленты над бейджем. */
+    margin-top: clamp(28px, 9svh, 96px);
     animation: drop 0.9s cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+  }
+
+  /* 3D-бейдж: холст на весь первый экран и выше, под шапку — лента уходит за верхний край.
+     Нажатия холст не ловит: их разбирает скрипт, чтобы не мешать кнопкам и прокрутке. */
+  .lanyard {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -72px;
+    bottom: 0;
+    z-index: 2;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+  }
+
+  .lanyard :global(canvas) {
+    display: block;
+  }
+
+  .heroA.is-3d .lanyard {
+    opacity: 1;
+  }
+
+  /* HTML-карточка остаётся на месте (для клавиатуры и экранного диктора), но не видна. */
+  .heroA.is-3d .badge {
+    animation: none;
+    pointer-events: none;
+  }
+
+  .heroA.is-3d .badge__tilt {
+    opacity: 0;
+  }
+
+  /* Пока 3D-бейдж грузится, место под него пустое: карточка и подсказка скрыты.
+     Если бейдж не загрузится, класс снимается и карточка плавно появляется. */
+  :global(html.badge-pending) .badge {
+    pointer-events: none;
+  }
+
+  :global(html.badge-pending) .badge__tilt {
+    opacity: 0;
+  }
+
+  :global(html.badge-pending) .heroA__hint {
+    visibility: hidden;
+  }
+
+  /* Если бейдж грузится дольше секунды (медленная связь), на его месте проступает
+     бледный силуэт: видно, что страница не сломалась, а что-то загружается. */
+  :global(html.badge-pending) .badge {
+    position: relative;
+  }
+
+  :global(html.badge-pending) .badge::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 18px;
+    background: rgba(14, 14, 26, 0.07);
+    opacity: 0;
+    animation: waiting 1.1s ease-in-out 1.2s infinite alternate;
+  }
+
+  @keyframes waiting {
+    from {
+      opacity: 0.35;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  :global(html.is-over-badge) {
+    cursor: grab;
+  }
+
+  :global(html.is-grabbing),
+  :global(html.is-grabbing *) {
+    cursor: grabbing !important;
+    user-select: none;
   }
 
   .badge {
     display: block;
-    height: min(56svh, 470px);
+    height: min(48svh, 470px);
     max-width: 84vw;
     aspect-ratio: 0.68;
     padding: 0;
@@ -123,11 +277,14 @@ const qr = await QRCode.toString(profile.site, {
   }
 
   .badge__tilt {
+    transition: opacity 0.3s ease;
     transform: rotateX(var(--rx)) rotateY(var(--ry));
-    filter: drop-shadow(0 26px 30px rgba(20, 19, 43, 0.28));
+    filter: drop-shadow(0 26px 30px rgba(10, 10, 20, 0.3));
   }
 
+  /* Все размеры внутри карточки считаются от её ширины (единицы cqw). */
   .badge__flip {
+    container-type: inline-size;
     transition: transform 0.75s cubic-bezier(0.2, 0.85, 0.25, 1);
   }
 
@@ -140,173 +297,123 @@ const qr = await QRCode.toString(profile.site, {
     inset: 0;
     display: flex;
     flex-direction: column;
-    container-type: inline-size;
-    border-radius: 22px;
+    border-radius: 18px;
     overflow: hidden;
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
     text-align: left;
+    font-family: 'Geist Variable', 'Helvetica Neue', Arial, sans-serif;
   }
 
-  /* Лицевая сторона */
+  /* Лицевая сторона: чёрная, огромные инициалы столбиком справа. */
   .badge__front {
-    padding: 9%;
-    border: 1.5px solid transparent;
-    background:
-      linear-gradient(var(--card), var(--card)) padding-box,
-      linear-gradient(
-          calc(120deg + var(--ry) * 4),
-          var(--foil-1),
-          var(--foil-2),
-          var(--foil-3),
-          var(--foil-1)
-        )
-        border-box;
+    padding: 6.25cqw;
+    background: #000;
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   }
 
-  .badge__rings {
+  .badge__mark {
+    font-weight: 700;
+    font-size: 5.2cqw;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  .badge__big {
+    position: absolute;
+    top: 7%;
+    right: 5%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-weight: 640;
+    font-size: 54cqw;
+    line-height: 0.92;
+    letter-spacing: -0.04em;
+  }
+
+  /* «Сдвиг»: буква собрана из вертикальных полос, часть полос съехала вверх-вниз. */
+  .badge__letter {
+    position: relative;
+    display: block;
+  }
+
+  .badge__ghost {
+    visibility: hidden;
+  }
+
+  .badge__strip {
     position: absolute;
     inset: 0;
-    background: repeating-radial-gradient(
-      circle at 88% 8%,
-      rgba(255, 255, 255, 0.055) 0 1px,
-      transparent 1px 10px
-    );
-  }
-
-  .badge__slot {
-    align-self: center;
-    width: 22cqw;
-    height: 3.2cqw;
-    border-radius: 99px;
-    background: var(--bg);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
-    position: relative;
-  }
-
-  .badge__role {
-    position: relative;
-    margin-top: 9cqw;
-    font-size: max(9px, 3.3cqw);
-    color: #b9b7e6;
   }
 
   .badge__name {
     position: relative;
     display: flex;
     flex-direction: column;
-    margin-top: 4cqw;
-    font-family: var(--display);
-    font-weight: 700;
-    font-size: 12.6cqw;
-    line-height: 1.08;
-    letter-spacing: -0.01em;
-    text-transform: uppercase;
-    color: transparent;
-    background: linear-gradient(
-      115deg,
-      var(--foil-1) 0%,
-      var(--foil-2) 20%,
-      var(--foil-3) 40%,
-      var(--foil-1) 60%,
-      var(--foil-2) 80%,
-      var(--foil-3) 100%
-    );
-    background-size: 260% 260%;
-    background-position: calc(var(--mx) * 100%) calc(var(--my) * 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-  }
-
-  .badge__makes {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 2.4cqw;
     margin-top: auto;
-    font-size: max(9px, 3.3cqw);
-    color: #e6e5fb;
+    font-weight: 600;
+    font-size: 7.4cqw;
+    line-height: 1.06;
+    letter-spacing: -0.02em;
   }
 
-  .badge__makes span {
-    padding-top: 2.4cqw;
-    border-top: 1px solid rgba(255, 255, 255, 0.14);
-  }
-
-  .badge__foot {
+  .badge__role {
     position: relative;
-    display: flex;
-    justify-content: space-between;
+    margin-top: 3.5cqw;
+    font-family: 'Geist Mono Variable', ui-monospace, monospace;
+    font-size: max(8px, 2.7cqw);
+    letter-spacing: 0.06em;
+    color: #d6d6d6;
+  }
+
+  .badge__wordmark {
+    position: relative;
+    display: inline-flex;
     align-items: center;
-    margin-top: 6cqw;
-    font-size: max(9px, 3.3cqw);
-    color: #b9b7e6;
+    gap: 0.28em;
+    margin-top: 11cqw;
+    font-weight: 600;
+    font-size: 4.4cqw;
+    line-height: 1;
+    letter-spacing: -0.03em;
   }
 
-  .badge__seal {
-    display: grid;
+  .badge__wordmark span {
+    display: inline-grid;
     place-items: center;
-    width: 14cqw;
-    height: 14cqw;
-    border-radius: 50%;
-    color: var(--card);
-    font-weight: 700;
-    background: conic-gradient(
-      from calc(var(--mx) * 360deg),
-      var(--foil-1),
-      var(--foil-2),
-      var(--foil-3),
-      var(--foil-1)
-    );
+    min-width: 0.86em;
+    height: 0.86em;
+    padding: 0 0.16em;
+    border: 0.065em solid currentColor;
+    border-radius: 0.2em;
+    font-size: 0.5em;
+    letter-spacing: 0;
   }
 
-  .badge__sheen {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-      radial-gradient(
-        circle at calc(var(--mx) * 100%) calc(var(--my) * 100%),
-        rgba(255, 255, 255, 0.2),
-        transparent 52%
-      ),
-      linear-gradient(
-        115deg,
-        transparent 32%,
-        rgba(111, 227, 255, 0.2) 43%,
-        rgba(255, 122, 217, 0.2) 50%,
-        rgba(255, 226, 122, 0.2) 57%,
-        transparent 68%
-      );
-    background-size:
-      100% 100%,
-      240% 240%;
-    background-position:
-      0 0,
-      calc(var(--mx) * 100%) calc(var(--my) * 100%);
-    mix-blend-mode: screen;
-  }
-
-  /* Оборот с QR */
+  /* Оборот: белый, QR-код по центру. */
   .badge__back {
     transform: rotateY(180deg);
     align-items: center;
-    padding: 9%;
-    background: #f7f8fa;
-    color: var(--card);
-    border: 1.5px solid #d5d8e0;
+    padding: 6.25cqw;
+    background: #fff;
+    color: #000;
     text-align: center;
   }
 
-  .badge__back .badge__slot {
-    background: var(--bg);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18);
+  .badge__qrtitle {
+    margin-top: 17cqw;
+    font-family: 'Geist Mono Variable', ui-monospace, monospace;
+    font-weight: 600;
+    font-size: max(9px, 3.4cqw);
+    letter-spacing: 0.1em;
   }
 
   .badge__qr {
     display: block;
-    width: 100%;
-    margin-top: auto;
+    width: 74%;
+    margin-top: 6cqw;
   }
 
   .badge__qr :global(svg) {
@@ -316,23 +423,25 @@ const qr = await QRCode.toString(profile.site, {
   }
 
   .badge__site {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2cqw;
     margin-top: 6cqw;
-    font-size: max(9px, 3.4cqw);
+    font-family: 'Geist Mono Variable', ui-monospace, monospace;
+    font-size: max(9px, 3cqw);
     text-transform: none;
     letter-spacing: 0.02em;
+    color: #222;
   }
 
-  .badge__scan {
-    margin-top: 2cqw;
-    margin-bottom: auto;
-    font-size: max(12px, 4.2cqw);
-    line-height: 1.3;
-    color: var(--ink-soft);
-    text-wrap: balance;
+  .badge__back .badge__wordmark {
+    margin-top: auto;
   }
 
   .heroA__hint {
-    margin: 4px 0 0;
+    margin: 14px 0 0;
+    max-width: 34ch;
+    text-wrap: balance;
     color: var(--ink-soft);
     font-size: 10px;
   }
@@ -438,5 +547,69 @@ const qr = await QRCode.toString(profile.site, {
           .catch(() => {});
       }
     });
+  }
+
+  // 3D-бейдж на ленте. Нужен ли он, решает маленький скрипт в разметке выше (до первой отрисовки).
+  const hero = document.querySelector<HTMLElement>('.heroA');
+  const host = document.querySelector<HTMLElement>('[data-lanyard]');
+  const card = document.querySelector<HTMLButtonElement>('.badge');
+  const want3d = (window as Window & { __badge3d?: boolean }).__badge3d === true;
+  // Возврат к обычной карточке, если бейдж не загрузился.
+  const showCard = () => document.documentElement.classList.remove('badge-pending');
+
+  if (hero && host && card && want3d) {
+    // Не ждём бейдж вечно: при плохой связи через 8 секунд показываем обычную карточку,
+    // а бейдж подменит её, когда всё-таки загрузится.
+    const giveUp = window.setTimeout(showCard, 8000);
+    const text = (sel: string) => card.querySelector(sel)?.textContent?.trim() ?? '';
+    // Надписи для 3D-бейджа берутся из HTML-карточки: при смене языка она обновляется первой.
+    const readContent = () => ({
+      role: text('.badge__role'),
+      first: text('.badge__name span:first-child'),
+      last: text('.badge__name span:last-child'),
+      handle: card.dataset.handle ?? '',
+      site: card.dataset.site ?? '',
+      qr: card.dataset.qr ?? '',
+      qrSize: Number(card.dataset.qrSize ?? 0),
+      tag: card.dataset.tag ?? '',
+      qrTitle: card.dataset.qrTitle ?? '',
+    });
+    const start = async () => {
+      try {
+        const { mountLanyard } = await import('../scripts/lanyard');
+        const lanyard = await mountLanyard({
+          host,
+          target: card,
+          content: readContent(),
+          isFlipped: () => card.getAttribute('aria-pressed') === 'true',
+          onTap: () => card.click(),
+          onReady: () => {
+            window.clearTimeout(giveUp);
+            hero.classList.add('is-3d');
+            showCard();
+            const hint = hero.querySelector<HTMLElement>('[data-drag-hint]');
+            if (hint?.dataset.dragHint) hint.textContent = hint.dataset.dragHint;
+          },
+        });
+        new MutationObserver(lanyard.wake).observe(card, { attributes: true, attributeFilter: ['aria-pressed'] });
+        // Язык сменился без перезагрузки (см. LangSwitch.astro): перерисовываем надписи на бейдже.
+        document.addEventListener('langchange', () => {
+          const hint = hero.querySelector<HTMLElement>('[data-drag-hint]');
+          if (hint?.dataset.dragHint) hint.textContent = hint.dataset.dragHint;
+          // Рисование надписей занимает заметное время: сначала даём проявиться тексту страницы.
+          window.setTimeout(() => lanyard.setContent(readContent()), 60);
+        });
+      } catch (error) {
+        // Не загрузилось — показываем обычную карточку.
+        window.clearTimeout(giveUp);
+        hero.classList.remove('is-3d');
+        showCard();
+        console.warn('3D badge unavailable', error);
+      }
+    };
+    // Грузим сразу, не дожидаясь остальной страницы: бейдж — первое, что должен увидеть человек.
+    start();
+  } else {
+    showCard();
   }
 </script>
